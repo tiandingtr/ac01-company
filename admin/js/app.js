@@ -112,7 +112,13 @@
       const marker = document.getElementById('build-marker');
       const pageBuild = (window.AC01_BUILD && window.AC01_BUILD.buildId) || '';
       if (marker) {
-        marker.textContent = (data.buildId || pageBuild) + ' · ' + (data.dataMode || '') + ' · 非生产数据';
+        marker.textContent = (data.buildId || '未返回') + ' · ' + (data.dataMode || '未返回') + ' · 非生产数据';
+      }
+      const targets = document.getElementById('target-marker');
+      if (targets && window.FSRules && FSRules.describeRelease) {
+        const described = FSRules.describeRelease(data);
+        targets.dataset.state = described.state;
+        targets.textContent = described.text;
       }
       if (!data.buildId || data.buildId !== pageBuild || data.productionData !== false || data.dataMode !== 'simulated-test') {
         showStatus('页面版本与接口版本不一致，或接口不是隔离模拟测试发布。', 'danger');

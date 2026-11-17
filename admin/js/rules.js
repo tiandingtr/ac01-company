@@ -86,6 +86,61 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  function stringOrEmpty(value) {
+    return typeof value === 'string' ? value : '';
+  }
+
+  /* Formats the me.release object already returned at login. Does not invent ids. */
+  function describeRelease(data) {
+    var release = data && typeof data.release === 'object' && data.release ? data.release : null;
+    var buildId = stringOrEmpty(release && release.buildId) || stringOrEmpty(data && data.buildId);
+    var dataMode = stringOrEmpty(release && release.dataMode) || stringOrEmpty(data && data.dataMode);
+    var head = '版本 ' + (buildId || '未返回') + ' · 环境 ' + (dataMode || '未返回');
+    if (!release) {
+      return {
+        state: 'unavailable',
+        spreadsheetId: '',
+        driveRootId: '',
+        buildId: buildId,
+        dataMode: dataMode,
+        text: head + '。隔离目标未从本次登录接口返回，页面不填入预置编号。'
+      };
+    }
+    var sheet = stringOrEmpty(release.spreadsheetId);
+    var drive = stringOrEmpty(release.driveRootId);
+    if (release.mismatch === true || release.targetsMatch === false) {
+      var echoed = '';
+      if (sheet) echoed += ' 接口返回的表格 ' + sheet + '。';
+      if (drive) echoed += ' 接口返回的凭证根 ' + drive + '。';
+      return {
+        state: 'mismatch',
+        spreadsheetId: sheet,
+        driveRootId: drive,
+        buildId: buildId,
+        dataMode: dataMode,
+        text: head + '。接口标明隔离目标不一致。页面不另填编号。' + echoed
+      };
+    }
+    if (!sheet || !drive) {
+      return {
+        state: 'unavailable',
+        spreadsheetId: sheet,
+        driveRootId: drive,
+        buildId: buildId,
+        dataMode: dataMode,
+        text: head + '。接口未返回完整的有效表格或凭证根。页面不填入预置编号。'
+      };
+    }
+    return {
+      state: 'observed',
+      spreadsheetId: sheet,
+      driveRootId: drive,
+      buildId: buildId,
+      dataMode: dataMode,
+      text: head + '。有效表格 ' + sheet + '。有效凭证根 ' + drive + '。来源：本次 me.release。'
+    };
+  }
+
   return {
     CASH_LINE_LIMIT: CASH_LINE_LIMIT,
     CASH_MONTH_LIMIT: CASH_MONTH_LIMIT,
@@ -93,6 +148,7 @@
     checkCashAmount: checkCashAmount,
     checkCashMonth: checkCashMonth,
     formalPostDecision: formalPostDecision,
-    completionDecision: completionDecision
+    completionDecision: completionDecision,
+    describeRelease: describeRelease
   };
 });

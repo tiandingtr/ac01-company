@@ -1,7 +1,7 @@
 {
   "version": "gas/release + admin ui",
   "environment": "synthetic-browser http://127.0.0.1:8765",
-  "passed": 21,
+  "passed": 23,
   "failed": 0,
   "results": [
     {
@@ -45,6 +45,19 @@
       },
       "expected": "live web app url still in repo file",
       "actual": true,
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-LOGIN-NO-TARGET-IDS",
+      "input": {
+        "page": "login"
+      },
+      "expected": "ids absent before auth",
+      "actual": false,
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
       "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
@@ -170,6 +183,25 @@
     },
     {
       "round": "R1",
+      "id": "SYN-R1-TARGETS-FROM-ME",
+      "input": {
+        "source": "me.release"
+      },
+      "expected": "DOM echoes response ids",
+      "actual": {
+        "state": "observed",
+        "shown": "版本 ac01-sim-test-20261118 · 环境 simulated-test。有效表格 1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ。有效凭证根 1pap27ixWjsIUpmIWzRI6pI0YPj_okD18。来源：本次 me.release。",
+        "sheet": "1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ",
+        "drive": "1pap27ixWjsIUpmIWzRI6pI0YPj_okD18",
+        "calls": "me only"
+      },
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
       "id": "SYN-R1-NAV",
       "input": {
         "views": [
@@ -242,7 +274,7 @@
       "expected": "one row and success",
       "actual": {
         "planRows": 1,
-        "busyText": "计划已保存 PL-MWKZ8UNTMC3EMM · 2026-11"
+        "busyText": "计划已保存 PL-MWKZYON06PCMTA · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
@@ -287,7 +319,7 @@
       "actual": {
         "postDisabled": true,
         "exportDisabled": true,
-        "postStatus": "计划已保存 PL-MWKZ8UNTMC3EMM · 2026-11"
+        "postStatus": "计划已保存 PL-MWKZYON06PCMTA · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",

@@ -55,6 +55,8 @@ const configOnDisk = fs.readFileSync(path.join(root, 'admin/js/config.js'), 'utf
 rec('R1', 'SYN-R1-CONFIG-UNCHANGED', { file: 'admin/js/config.js' }, 'live web app url still in repo file', configOnDisk.indexOf('script.google.com') >= 0, configOnDisk.indexOf('script.google.com') >= 0);
 
 await page.goto(base + '/admin/login.html', { waitUntil: 'networkidle0' });
+const loginLeak = await page.evaluate(() => document.body.innerText.indexOf('1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ') >= 0 || document.body.innerText.indexOf('1pap27ixWjsIUpmIWzRI6pI0YPj_okD18') >= 0);
+rec('R1', 'SYN-R1-LOGIN-NO-TARGET-IDS', { page: 'login' }, 'ids absent before auth', loginLeak, loginLeak === false);
 const home = await page.$eval('a.login-home', (a) => ({ text: a.textContent.trim(), href: a.getAttribute('href') }));
 const foot = await page.$eval('.login-foot', (el) => el.innerText);
 const hart = await page.evaluate(() => document.body.innerText.toLowerCase().indexOf('harthelm') >= 0);
@@ -109,6 +111,20 @@ const gate = await page.$eval('#gate-note', (el) => el.textContent);
 rec('R1', 'SYN-R1-GATE-VISIBLE', {}, '期初待确认', gate, gate.indexOf('期初待确认') >= 0 && gate.indexOf('禁止正式记账') >= 0);
 const buildText = await page.$eval('#build-marker', (el) => el.textContent);
 rec('R1', 'SYN-R1-BUILD-MARKER', {}, 'ac01-sim-test-20261118 simulated-test', buildText, buildText.indexOf('ac01-sim-test-20261118') >= 0 && buildText.indexOf('simulated-test') >= 0 && buildText.indexOf('非生产') >= 0);
+const observed = await page.evaluate(async () => {
+  const me = await FS.api('me');
+  const shown = document.querySelector('#target-marker').textContent;
+  const release = me.release || {};
+  return {
+    state: document.querySelector('#target-marker').dataset.state,
+    shown,
+    sheet: release.spreadsheetId || '',
+    drive: release.driveRootId || '',
+    calls: 'me only'
+  };
+});
+rec('R1', 'SYN-R1-TARGETS-FROM-ME', { source: 'me.release' }, 'DOM echoes response ids', observed, observed.state === 'observed' && observed.sheet && observed.drive && observed.shown.indexOf(observed.sheet) >= 0 && observed.shown.indexOf(observed.drive) >= 0 && observed.shown.indexOf('本次 me.release') >= 0);
+await shot(page, 'r1-targets-desktop.png');
 await shot(page, 'r1-dashboard-desktop.png');
 
 const views = ['plans', 'proposals', 'documents', 'finance', 'contracts', 'logs', 'dashboard'];
@@ -123,10 +139,12 @@ rec('R1', 'SYN-R1-NAV', { views }, 'each module title', titles, titles.length ==
 
 await page.setViewport({ width: 390, height: 844 });
 await page.click('#nav a[data-view="dashboard"]');
-await page.waitForFunction(() => document.querySelector('#gate-note'));
+await page.waitForFunction(() => document.querySelector('#target-marker') && document.querySelector('#target-marker').dataset.state === 'observed');
+const mobileOverflowTargets = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+await shot(page, 'r1-targets-mobile.png');
 const mobileGate = await page.$eval('#gate-note', (el) => getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0);
 await shot(page, 'r1-dashboard-mobile.png');
-rec('R1', 'SYN-R1-MOBILE-GATE', { viewport: '390x844' }, 'gate note visible', mobileGate, mobileGate === true);
+rec('R1', 'SYN-R1-MOBILE-GATE', { viewport: '390x844' }, 'gate note visible', mobileGate, mobileGate === true && mobileOverflowTargets === true);
 
 await page.setViewport({ width: 1280, height: 800 });
 await page.evaluate(() => sessionStorage.clear());

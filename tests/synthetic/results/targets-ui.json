@@ -1,0 +1,80 @@
+{
+  "kind": "synthetic-ui-target-display",
+  "live": "BLOCKED",
+  "passed": 4,
+  "failed": 0,
+  "results": [
+    {
+      "id": "TARGET-MISSING",
+      "input": {
+        "release": null
+      },
+      "expected": "unavailable and no invented id",
+      "actual": {
+        "state": "unavailable",
+        "spreadsheetId": "",
+        "driveRootId": "",
+        "buildId": "from-server",
+        "dataMode": "simulated-test",
+        "text": "版本 from-server · 环境 simulated-test。隔离目标未从本次登录接口返回，页面不填入预置编号。"
+      },
+      "status": "pass",
+      "environment": "unit-rules",
+      "live": "BLOCKED"
+    },
+    {
+      "id": "TARGET-MISMATCH",
+      "input": {
+        "mismatch": true
+      },
+      "expected": "mismatch and no invented id",
+      "actual": {
+        "state": "mismatch",
+        "spreadsheetId": "",
+        "driveRootId": "",
+        "buildId": "from-server",
+        "dataMode": "simulated-test",
+        "text": "版本 from-server · 环境 simulated-test。接口标明隔离目标不一致。页面不另填编号。"
+      },
+      "status": "pass",
+      "environment": "unit-rules",
+      "live": "BLOCKED"
+    },
+    {
+      "id": "TARGET-MISMATCH-ECHO",
+      "input": {
+        "ids": "only if present"
+      },
+      "expected": "echo response only",
+      "actual": {
+        "state": "mismatch",
+        "spreadsheetId": "RETURNED-SHEET",
+        "driveRootId": "RETURNED-DRIVE",
+        "buildId": "",
+        "dataMode": "",
+        "text": "版本 未返回 · 环境 未返回。接口标明隔离目标不一致。页面不另填编号。 接口返回的表格 RETURNED-SHEET。 接口返回的凭证根 RETURNED-DRIVE。"
+      },
+      "status": "pass",
+      "environment": "unit-rules",
+      "live": "BLOCKED"
+    },
+    {
+      "id": "TARGET-VALID",
+      "input": {
+        "source": "me.release"
+      },
+      "expected": "observed server ids",
+      "actual": {
+        "state": "observed",
+        "spreadsheetId": "SERVER-SHEET",
+        "driveRootId": "SERVER-DRIVE",
+        "buildId": "ac01-sim-test-20261118",
+        "dataMode": "simulated-test",
+        "text": "版本 ac01-sim-test-20261118 · 环境 simulated-test。有效表格 SERVER-SHEET。有效凭证根 SERVER-DRIVE。来源：本次 me.release。"
+      },
+      "status": "pass",
+      "environment": "unit-rules",
+      "live": "BLOCKED"
+    }
+  ]
+}

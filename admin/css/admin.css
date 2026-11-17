@@ -215,6 +215,16 @@ button, input, select, textarea { font: inherit; }
 .top-title { min-width: 0; }
 .gate-note { margin: 4px 0 0; font-size: 12px; color: var(--warn); font-weight: 700; }
 .build-marker { margin: 2px 0 0; font-size: 11px; color: var(--muted); letter-spacing: .01em; }
+.target-marker {
+  margin: 4px 0 0;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.top-title { min-width: 0; max-width: 100%; }
 .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .status {
   display: none;
@@ -301,14 +311,16 @@ details.block summary { cursor: pointer; font-weight: 700; color: var(--navy); }
   outline-offset: 2px;
 }
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; }
+  .app { grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; }
+  .side, .main, .nav, .top, .top-title { min-width: 0; max-width: 100%; }
   .side { position: sticky; top: 0; z-index: 20; }
-  .nav { display: flex; overflow: auto; gap: 4px; }
+  .nav { display: flex; overflow: auto; gap: 4px; width: 100%; }
   .nav a { white-space: nowrap; }
   .brand img { height: 22px; }
   .side .foot { display: block; font-size: 11px; }
   .top { align-items: flex-start; flex-direction: column; }
   .who { justify-content: flex-start; }
-  .content, .status { padding-left: 14px; padding-right: 14px; }
+  .content, .status, .top { padding-left: 14px; padding-right: 14px; }
+  .main, .top, .top-title { min-width: 0; max-width: 100%; }
   .preview-banner { flex-direction: column; align-items: flex-start; }
 }
