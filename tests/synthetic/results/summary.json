@@ -1,0 +1,27 @@
+{
+  "kind": "synthetic-final-regression",
+  "live": "BLOCKED",
+  "liveNote": "These four rounds are synthetic only. They are not the forthcoming QA live rounds. Live calls stay blocked until the host deploys.",
+  "codeCommit": "ae9cea07bb7928cba213603f5231c65eb8d35f1a",
+  "buildId": "ac01-sim-test-20261118",
+  "dataMode": "simulated-test",
+  "productionData": false,
+  "backendSha256": "bba6140d9976c46e6b5785a3cdc3434f7d8fa4b59792b65305071a82085f669c",
+  "manifestSha256": "6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415",
+  "isolatedSpreadsheetId": "1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ",
+  "isolatedDriveRootId": "1pap27ixWjsIUpmIWzRI6pI0YPj_okD18",
+  "node": {
+    "passed": 52,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 16,
+    "failed": 0
+  },
+  "rounds": {
+    "R1": "tests/synthetic/results/synthetic-r1.json plus browser R1 cases",
+    "R2": "tests/synthetic/results/synthetic-r2.json plus browser R2 cases",
+    "R3": "tests/synthetic/results/synthetic-r3.json plus browser R3 cases",
+    "R4": "tests/synthetic/results/synthetic-r4.json plus browser R4 cases"
+  }
+}

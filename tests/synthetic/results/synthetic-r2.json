@@ -40,7 +40,7 @@
         "clientRequestId": "PL-REQ-1"
       },
       "expected": "same id",
-      "actual": "PL-MWKYXVEEACTWUJ",
+      "actual": "PL-MWKYYH6WPTMCR6",
       "version": "gas/release + admin frontend rules",
       "environment": "synthetic-memory",
       "backend": "gas/release/Code.js",
@@ -105,7 +105,7 @@
       "actual": {
         "listed": true,
         "logHit": true,
-        "id": "CA-MWKYXVEOZMOBCA"
+        "id": "CA-MWKYYH75ISWVPD"
       },
       "version": "gas/release + admin frontend rules",
       "environment": "synthetic-memory",

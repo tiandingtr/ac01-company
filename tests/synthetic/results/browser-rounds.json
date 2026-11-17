@@ -170,7 +170,7 @@
       "expected": "one row and success",
       "actual": {
         "planRows": 1,
-        "busyText": "计划已保存 PL-MWKYX9MPRCXACT · 2026-11"
+        "busyText": "计划已保存 PL-MWKYYLGDO14QM3 · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
@@ -215,7 +215,7 @@
       "actual": {
         "postDisabled": true,
         "exportDisabled": true,
-        "postStatus": "计划已保存 PL-MWKYX9MPRCXACT · 2026-11"
+        "postStatus": "计划已保存 PL-MWKYYLGDO14QM3 · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",

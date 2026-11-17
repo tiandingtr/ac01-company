@@ -170,7 +170,7 @@
         "clientRequestId": "PL-REQ-1"
       },
       "expected": "same id",
-      "actual": "PL-MWKYXVEEACTWUJ",
+      "actual": "PL-MWKYYH6WPTMCR6",
       "version": "gas/release + admin frontend rules",
       "environment": "synthetic-memory",
       "backend": "gas/release/Code.js",
@@ -235,7 +235,7 @@
       "actual": {
         "listed": true,
         "logHit": true,
-        "id": "CA-MWKYXVEOZMOBCA"
+        "id": "CA-MWKYYH75ISWVPD"
       },
       "version": "gas/release + admin frontend rules",
       "environment": "synthetic-memory",
@@ -376,7 +376,7 @@
       "round": "R3",
       "id": "SYN-R3-CONFIRM-UNFINISHED",
       "input": {
-        "lineId": "JL-MWKYXVERF5MGOG"
+        "lineId": "JL-MWKYYH78HJ0BNL"
       },
       "expected": "rejected",
       "actual": false,
@@ -390,7 +390,7 @@
       "round": "R3",
       "id": "SYN-R3-WAIVE",
       "input": {
-        "lineId": "JL-MWKYXVERF5MGOG"
+        "lineId": "JL-MWKYYH78HJ0BNL"
       },
       "expected": "免原件",
       "actual": "免原件",
@@ -674,7 +674,7 @@
       "actual": {
         "status": "模拟/草稿 非正式凭证",
         "official": false,
-        "same": "DRAFT-MWKYXVEXVOGM96"
+        "same": "DRAFT-MWKYYH7CTWZA35"
       },
       "version": "gas/release + admin frontend rules",
       "environment": "synthetic-memory",
