@@ -1,0 +1,285 @@
+{
+  "kind": "synthetic",
+  "live": "BLOCKED",
+  "round": "R4",
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "round": "R4",
+      "id": "SYN-R4-POST-LOCKED",
+      "input": {
+        "openingConfirmed": false
+      },
+      "expected": "OPENING_UNCONFIRMED",
+      "actual": "OPENING_UNCONFIRMED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-POST-NOT-WRITTEN",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "posted false",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-POST-WHEN-FLAG",
+      "input": {
+        "openingConfirmed": true,
+        "label": "synthetic gate proof only"
+      },
+      "expected": "posted",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CASH-2000-01",
+      "input": {
+        "amount": 2000.01
+      },
+      "expected": "CASH_LIMIT and not listed",
+      "actual": {
+        "code": "CASH_LIMIT",
+        "listed": false,
+        "rejected": 1
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CASH-NONPOSITIVE",
+      "input": {
+        "amounts": [
+          0,
+          -1
+        ]
+      },
+      "expected": "CASH_AMOUNT",
+      "actual": [
+        "CASH_AMOUNT",
+        "CASH_AMOUNT"
+      ],
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CLIENT-CASH",
+      "input": {
+        "role": "客户"
+      },
+      "expected": "FORBIDDEN",
+      "actual": "FORBIDDEN",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CLIENT-PLAN",
+      "input": {
+        "role": "客户"
+      },
+      "expected": "FORBIDDEN",
+      "actual": "FORBIDDEN",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CLIENT-FEEDBACK",
+      "input": {
+        "mode": "feedback"
+      },
+      "expected": "saved",
+      "actual": "SYN_FB",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-DATE-MONTH",
+      "input": {
+        "date": "2026-10-01",
+        "month": "2026-11"
+      },
+      "expected": "MONTH_MISMATCH",
+      "actual": "MONTH_MISMATCH",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-UI-RULES",
+      "input": {
+        "amount": 2000.01,
+        "openingConfirmed": false
+      },
+      "expected": "blocked before request",
+      "actual": {
+        "uiAmount": "CASH_LIMIT",
+        "uiZero": "CASH_AMOUNT",
+        "allowed": false
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-UNBALANCED",
+      "input": {
+        "opening": 0,
+        "line": 5,
+        "closing": 1
+      },
+      "expected": "UNBALANCED",
+      "actual": "UNBALANCED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-INVOICE-GATES",
+      "input": {},
+      "expected": "mismatch, order, official closed",
+      "actual": [
+        "AMOUNT_MISMATCH",
+        "ORDER_UNSUPPORTED",
+        "OFFICIAL_INVOICE_CLOSED"
+      ],
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-AUTHZ",
+      "input": {
+        "role": "客户",
+        "opening": true
+      },
+      "expected": "forbidden or immutable",
+      "actual": [
+        "FORBIDDEN",
+        "FORBIDDEN",
+        "OPENING_IMMUTABLE",
+        "OPENING_IMMUTABLE"
+      ],
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-FILE-LIMIT",
+      "input": {
+        "bytes": "about 10MB+"
+      },
+      "expected": "rejected",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-TARGET-MISMATCH",
+      "input": {
+        "sheet": "other",
+        "drive": "other"
+      },
+      "expected": "TARGET_MISMATCH before open",
+      "actual": {
+        "sheet": "TARGET_MISMATCH",
+        "drive": "TARGET_MISMATCH",
+        "opened": false
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-TARGET-MATCH",
+      "input": {
+        "override": "same isolated ids"
+      },
+      "expected": "two ids only, secret omitted",
+      "actual": {
+        "spreadsheetId": "1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ",
+        "driveRootId": "1pap27ixWjsIUpmIWzRI6pI0YPj_okD18",
+        "leaked": false
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-ANON-AND-PROD",
+      "input": {},
+      "expected": "unauthenticated and no production mode",
+      "actual": [
+        "UNAUTHENTICATED",
+        "PRODUCTION_MODE_CLOSED",
+        "ac01-sim-test-20261118"
+      ],
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    }
+  ]
+}

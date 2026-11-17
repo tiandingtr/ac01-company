@@ -1,7 +1,7 @@
 {
   "version": "gas/release + admin ui",
   "environment": "synthetic-browser http://127.0.0.1:8765",
-  "passed": 14,
+  "passed": 16,
   "failed": 0,
   "results": [
     {
@@ -14,6 +14,8 @@
         "/admin/js/app.js",
         "/admin/js/api.js",
         "/admin/js/rules.js",
+        "/admin/js/build.js",
+        "/admin/js/config.js",
         "/favicon.svg",
         "/assets/logo-horizontal.svg"
       ],
@@ -25,6 +27,8 @@
         "/admin/js/app.js": 200,
         "/admin/js/api.js": 200,
         "/admin/js/rules.js": 200,
+        "/admin/js/build.js": 200,
+        "/admin/js/config.js": 200,
         "/favicon.svg": 200,
         "/assets/logo-horizontal.svg": 200
       },
@@ -76,6 +80,17 @@
       "input": {},
       "expected": "期初待确认",
       "actual": "期初待确认，禁止正式记账。对客正式合同生成已关闭。",
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-BUILD-MARKER",
+      "input": {},
+      "expected": "ac01-sim-test-20261118 simulated-test",
+      "actual": "ac01-sim-test-20261118 · simulated-test · 非生产数据",
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
       "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
@@ -135,6 +150,17 @@
       "status": "pass"
     },
     {
+      "round": "R3",
+      "id": "SYN-R3-UI-ORDER-GAP",
+      "input": {},
+      "expected": "合同不是订单",
+      "actual": true,
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
       "round": "R2",
       "id": "SYN-R2-UI-PLAN-ONCE",
       "input": {
@@ -144,7 +170,7 @@
       "expected": "one row and success",
       "actual": {
         "planRows": 1,
-        "busyText": "计划已保存 PL-MWKYLDOSRQKM7V · 2026-11"
+        "busyText": "计划已保存 PL-MWKYX9MPRCXACT · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
@@ -188,7 +214,8 @@
       "expected": "disabled and not submitted",
       "actual": {
         "postDisabled": true,
-        "postStatus": "计划已保存 PL-MWKYLDOSRQKM7V · 2026-11"
+        "exportDisabled": true,
+        "postStatus": "计划已保存 PL-MWKYX9MPRCXACT · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",

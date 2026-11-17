@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1F3A2E">
+<title>天鼎一体化公司管理后台</title>
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="preview-banner">
+  <span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span>
+  <span>期初待确认，禁止正式记账 · 对客正式合同生成已关闭</span>
+</div>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img src="../assets/logo-horizontal-white.svg" alt="香港天鼎國際貿易有限公司">
+    </div>
+    <nav class="nav" id="nav" aria-label="后台模块">
+      <a href="./#dashboard" data-view="dashboard">总览看板</a>
+      <a href="./#plans" data-view="plans">每月经营计划</a>
+      <a href="./#proposals" data-view="proposals">运营策划书</a>
+      <a href="./#documents" data-view="documents">资料与凭证</a>
+      <a href="./#finance" data-view="finance">月账与四套账</a>
+      <a href="./#contracts" data-view="contracts">合同与发票</a>
+      <a href="./#logs" data-view="logs">操作日志</a>
+    </nav>
+    <div class="foot">一户一套：一本独立表、一个专属文件夹、一套接口。期初待确认，禁止正式记账。</div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div class="top-title">
+        <h2 id="title">总览看板</h2>
+        <p class="gate-note" id="gate-note">期初待确认，禁止正式记账。对客正式合同生成已关闭。</p>
+        <p class="build-marker" id="build-marker">ac01-sim-test-20261118 · simulated-test · 非生产数据</p>
+      </div>
+      <div class="who">
+        <a class="btn ghost small" href="../index.html">公司网站</a>
+        <button class="btn ghost small" id="back" type="button">返回</button>
+        <span id="who"></span>
+        <button class="btn ghost small" id="logout" type="button">退出</button>
+      </div>
+    </header>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <div class="content" id="view">正在读取…</div>
+  </div>
+</div>
+<script src="js/config.js"></script>
+<script src="js/build.js"></script>
+<script src="js/api.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

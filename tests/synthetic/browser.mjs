@@ -43,7 +43,7 @@ const errors = [];
 page.on('pageerror', (err) => errors.push(String(err)));
 await page.setViewport({ width: 1280, height: 800 });
 
-const assetPaths = ['/admin/login.html', '/admin/index.html', '/admin/css/admin.css', '/admin/js/app.js', '/admin/js/api.js', '/admin/js/rules.js', '/favicon.svg', '/assets/logo-horizontal.svg'];
+const assetPaths = ['/admin/login.html', '/admin/index.html', '/admin/css/admin.css', '/admin/js/app.js', '/admin/js/api.js', '/admin/js/rules.js', '/admin/js/build.js', '/admin/js/config.js', '/favicon.svg', '/assets/logo-horizontal.svg'];
 const assetStatus = {};
 for (const p of assetPaths) {
   const res = await page.goto(base + p, { waitUntil: 'domcontentloaded' });
@@ -73,6 +73,8 @@ await page.waitForFunction(() => location.pathname.indexOf('/admin') >= 0 && !lo
 await page.waitForFunction(() => document.querySelector('#who') && document.querySelector('#who').textContent.indexOf('顾问') >= 0);
 const gate = await page.$eval('#gate-note', (el) => el.textContent);
 rec('R1', 'SYN-R1-GATE-VISIBLE', {}, '期初待确认', gate, gate.indexOf('期初待确认') >= 0 && gate.indexOf('禁止正式记账') >= 0);
+const buildText = await page.$eval('#build-marker', (el) => el.textContent);
+rec('R1', 'SYN-R1-BUILD-MARKER', {}, 'ac01-sim-test-20261118 simulated-test', buildText, buildText.indexOf('ac01-sim-test-20261118') >= 0 && buildText.indexOf('simulated-test') >= 0 && buildText.indexOf('非生产') >= 0);
 await shot(page, 'r1-dashboard-desktop.png');
 
 const views = ['plans', 'proposals', 'documents', 'finance', 'contracts', 'logs', 'dashboard'];
@@ -101,6 +103,11 @@ await page.type('#jobId', 'AC01-SYN-ADVISOR');
 await page.type('#password', password);
 await page.click('#go');
 await page.waitForFunction(() => document.querySelector('#who') && document.querySelector('#who').textContent.indexOf('顾问') >= 0);
+await page.click('#nav a[data-view="contracts"]');
+await page.waitForFunction(() => document.querySelector('#view') && document.querySelector('#view').textContent.indexOf('不是订单') >= 0);
+const orderGap = await page.$eval('#view', (el) => el.textContent);
+rec('R3', 'SYN-R3-UI-ORDER-GAP', {}, '合同不是订单', orderGap.indexOf('不是订单') >= 0, orderGap.indexOf('不是订单') >= 0 && orderGap.indexOf('模拟/草稿 非正式凭证') >= 0);
+await shot(page, 'r3-contracts-order-gap.png');
 
 await fetch(base + '/__test/delay', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ savePlan: 700 }) });
 await page.click('#nav a[data-view="plans"]');
@@ -145,10 +152,11 @@ await page.waitForFunction(() => document.querySelector('#view') && document.que
 await page.click('#view button[data-tab="four"]');
 await page.waitForSelector('#post-four');
 const postDisabled = await page.$eval('#post-four', (el) => el.disabled);
+const exportDisabled = await page.$eval('#export-four', (el) => el.disabled);
 const postHint = await page.$eval('#view', (el) => el.textContent);
 await page.click('#post-four');
 const postStatus = await page.$eval('#status', (el) => el.textContent);
-rec('R4', 'SYN-R4-UI-POST-DISABLED', { openingConfirmed: false }, 'disabled and not submitted', { postDisabled, postStatus }, postDisabled === true && /期初|禁止|未生成|不能定稿/.test(postHint + postStatus));
+rec('R4', 'SYN-R4-UI-POST-DISABLED', { openingConfirmed: false }, 'disabled and not submitted', { postDisabled, exportDisabled, postStatus }, postDisabled === true && exportDisabled === true && /期初|禁止|未生成|不能定稿/.test(postHint + postStatus));
 await shot(page, 'r4-finance-post-locked.png');
 
 await page.click('#view button[data-tab="completion"]');

@@ -1,0 +1,17 @@
+{
+  "revision": "gas/release",
+  "baselineCodeSha256": "ac6270882eea6090cc2fd328f491db2f4478f8bfa9c172a6566c606d60c1df58",
+  "liveManifestSha256": "6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415",
+  "importManifestSha256": "e91e4f253322e87f5a3dd8b79913f966a42315fb5577fba0b28578aa1b122e49",
+  "buildId": "ac01-sim-test-20261118",
+  "dataMode": "simulated-test",
+  "productionData": false,
+  "transport": "POST JSON { action, payload, token }. ANYONE_ANONYMOUS is only the web app transport. It is not a data grant. Missing token fails closed except login.",
+  "isolation": "Effective Sheet and Drive root must equal 1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ and 1pap27ixWjsIUpmIWzRI6pI0YPj_okD18 before any data read or write. A ScriptProperty override to any other id returns TARGET_MISMATCH and does not open that target. Properties are not changed or cleared. Only those two ids are returned, and only to an authenticated caller.",
+  "monthKey": "YYYY-MM. Inputs 2026-11 and 2026-11-01 canonicalize to 2026-11.",
+  "orders": "No order sheet, id, or action. A contract is not an order. ORDER_UNSUPPORTED.",
+  "invoice": "createInvoiceDraft only. Status is exactly 模拟/草稿 非正式凭证. No official number, tax, or signature. issueOfficialInvoice returns OFFICIAL_INVOICE_CLOSED.",
+  "fourStatementExport": "exportFourStatementsDraft returns CSV only. PDF_UNSUPPORTED. It does not post formal books.",
+  "formalBooks": "postFourStatements returns OPENING_UNCONFIRMED unless the sheet column 期初已确认 is already true. The API cannot set that flag.",
+  "officialContract": "generateOfficialContract stays GENERATION_CLOSED."
+}

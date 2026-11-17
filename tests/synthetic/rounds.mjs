@@ -142,7 +142,19 @@ rec('R3', 'SYN-R3-WAIVE', { lineId }, '免原件', waived.data && waived.data.li
 const confirmed = call(engine, advisor.token, 'confirmCompletion', { yearMonth: '2025-07' });
 rec('R3', 'SYN-R3-CONFIRM', { month: '2025-07' }, 'confirmed', confirmed.data && confirmed.data.month.completionConfirmed, confirmed.ok && confirmed.data.month.completionConfirmed === true);
 const preview = call(engine, advisor.token, 'previewFourStatements', { yearMonth: '2025-07' });
-rec('R3', 'SYN-R3-PREVIEW-NOT-POSTED', { month: '2025-07' }, 'not persisted', preview.data && preview.data.persisted, preview.ok && preview.data.persisted === false && String(preview.data.summary).indexOf('期初未确认') >= 0);
+rec('R3', 'SYN-R3-PREVIEW-NOT-POSTED', { month: '2025-07' }, 'not persisted', preview.data && preview.data.persisted, preview.ok && preview.data.persisted === false && preview.data.documentStatus === '模拟/草稿 非正式凭证');
+const draftExport = call(engine, advisor.token, 'exportFourStatementsDraft', { yearMonth: '2025-07', format: 'csv', clientRequestId: 'EX-1' });
+const postedBefore = call(engine, advisor.token, 'getMonth', { yearMonth: '2025-07' }).data.month.posted;
+const draftExportAgain = call(engine, advisor.token, 'exportFourStatementsDraft', { yearMonth: '2025-07', format: 'csv', clientRequestId: 'EX-1' });
+rec('R3', 'SYN-R3-FOUR-CSV', { month: '2025-07' }, 'draft csv, not posted', {
+  status: draftExport.data && draftExport.data.documentStatus,
+  formal: draftExport.data && draftExport.data.formal,
+  postedBefore,
+  replay: draftExportAgain.data && draftExportAgain.data.idempotentReplay,
+  mark: draftExport.data && String(draftExport.data.csv).indexOf('模拟/草稿 非正式凭证') >= 0
+}, draftExport.ok && draftExport.data.formal === false && postedBefore === false && draftExportAgain.data.idempotentReplay === true && String(draftExport.data.csv).indexOf('模拟/草稿 非正式凭证') >= 0);
+const pdf = call(engine, advisor.token, 'exportFourStatementsDraft', { yearMonth: '2025-07', format: 'pdf' });
+rec('R3', 'SYN-R3-PDF-GATED', { format: 'pdf' }, 'PDF_UNSUPPORTED', pdf.code, pdf.code === 'PDF_UNSUPPORTED');
 const postedBlocked = call(engine, advisor.token, 'postFourStatements', { yearMonth: '2025-07' });
 rec('R4', 'SYN-R4-POST-LOCKED', { openingConfirmed: false }, 'OPENING_UNCONFIRMED', postedBlocked.code, postedBlocked.ok === false && postedBlocked.code === 'OPENING_UNCONFIRMED');
 const still = call(engine, advisor.token, 'getMonth', { yearMonth: '2025-07' });
@@ -182,16 +194,97 @@ const unbalanced = call(engine, advisor.token, 'addStatement', {
 const genBad = call(engine, advisor.token, 'generateLedger', { yearMonth: '2026-07' });
 rec('R4', 'SYN-R4-UNBALANCED', { opening: 0, line: 5, closing: 1 }, 'UNBALANCED', genBad.code, unbalanced.ok && genBad.code === 'UNBALANCED');
 
+const linkedCash = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2024-12-01', date: '2024-12-15', desc: 'SYN_LINKED_INCOME', direction: '收入', amount: 100, currency: 'HKD', counterparty: 'SYN', contractNo: 'SYN-C-1', clientRequestId: 'CASH-LINK'
+});
+const linkedRead = call(engine, advisor.token, 'getMonth', { yearMonth: '2024-12' });
+const linkedRow = ((linkedRead.data.month && linkedRead.data.month.cashItems) || []).find((item) => item.clientRequestId === 'CASH-LINK');
+rec('R3', 'SYN-R3-CASH-CONTRACT-MONTH', { storedMonth: '2024-12-01', query: '2024-12' }, 'linked income listed', linkedRow && linkedRow.contractNo, linkedCash.ok && linkedRow && linkedRow.contractNo === 'SYN-C-1' && linkedRead.data.month.yearMonth === '2024-12');
+const orderCash = call(engine, advisor.token, 'addCashItem', { yearMonth: '2024-12', date: '2024-12-16', desc: 'ORDER', direction: '收入', amount: 1, currency: 'HKD', orderId: 'ORD-1' });
+rec('R3', 'SYN-R3-ORDER-GAP', { orderId: 'ORD-1' }, 'ORDER_UNSUPPORTED', orderCash.code, orderCash.code === 'ORDER_UNSUPPORTED');
+const file = call(engine, advisor.token, 'uploadDocument', { category: '其他', relatedId: 'SYN-C-1' }, tiny);
+const draft = call(engine, advisor.token, 'createInvoiceDraft', { contractNo: 'SYN-C-1', lineId: linkedCash.data.item.id, fileId: file.data.file.id, clientRequestId: 'INV-1' });
+const draftAgain = call(engine, advisor.token, 'createInvoiceDraft', { contractNo: 'SYN-C-1', lineId: linkedCash.data.item.id, fileId: file.data.file.id, clientRequestId: 'INV-2' });
+rec('R3', 'SYN-R3-INVOICE-DRAFT', { contractNo: 'SYN-C-1' }, 'draft mark, no official number', {
+  status: draft.data && draft.data.invoice.status,
+  official: draft.data && draft.data.invoice.official,
+  same: draftAgain.data && draftAgain.data.invoice.invoiceNo
+}, draft.ok && draft.data.invoice.status === '模拟/草稿 非正式凭证' && draft.data.invoice.official === false && draft.data.invoice.officialNumber == null && String(draft.data.invoice.csv).indexOf('模拟/草稿 非正式凭证') >= 0 && draftAgain.data.invoice.invoiceNo === draft.data.invoice.invoiceNo);
+const recon = call(engine, advisor.token, 'getReconciliation', { contractNo: 'SYN-C-1' });
+rec('R3', 'SYN-R3-RECONCILE', { contractNo: 'SYN-C-1' }, 'contract, cash, file, draft; no order', {
+  orderSupported: recon.data && recon.data.orderSupported
+}, recon.ok && recon.data.orderSupported === false && recon.data.cashIncome.some((c) => c.id === linkedCash.data.item.id) && recon.data.files.some((f) => f.id === file.data.file.id) && recon.data.invoices.some((inv) => inv.official === false));
+const mismatch = call(engine, advisor.token, 'createInvoiceDraft', { contractNo: 'SYN-C-1', lineId: linkedCash.data.item.id, amount: 999 });
+const orderDraft = call(engine, advisor.token, 'createInvoiceDraft', { contractNo: 'SYN-C-1', orderId: 'ORD-9' });
+const officialInv = call(engine, advisor.token, 'issueOfficialInvoice', { contractNo: 'SYN-C-1' });
+rec('R4', 'SYN-R4-INVOICE-GATES', {}, 'mismatch, order, official closed', [mismatch.code, orderDraft.code, officialInv.code], mismatch.code === 'AMOUNT_MISMATCH' && orderDraft.code === 'ORDER_UNSUPPORTED' && officialInv.code === 'OFFICIAL_INVOICE_CLOSED');
+const clientDraft = call(engine, client.token, 'createInvoiceDraft', { contractNo: 'SYN-C-1' });
+const clientExport = call(engine, client.token, 'exportFourStatementsDraft', { yearMonth: '2025-07' });
+const openingWrite = call(engine, advisor.token, 'setOpeningConfirmed', { openingConfirmed: true });
+const openingField = call(engine, advisor.token, 'getPlans', { openingConfirmed: true });
+rec('R4', 'SYN-R4-AUTHZ', { role: '客户', opening: true }, 'forbidden or immutable', [clientDraft.code, clientExport.code, openingWrite.code, openingField.code], clientDraft.code === 'FORBIDDEN' && clientExport.code === 'FORBIDDEN' && openingWrite.code === 'OPENING_IMMUTABLE' && openingField.code === 'OPENING_IMMUTABLE' && store.config.openingConfirmed === false);
+const big = call(engine, advisor.token, 'uploadDocument', { category: '其他', relatedId: 'TOO-BIG' }, { name: 'big.bin', mime: 'application/octet-stream', data: 'A'.repeat(14 * 1024 * 1024) });
+rec('R4', 'SYN-R4-FILE-LIMIT', { bytes: 'about 10MB+' }, 'rejected', big.ok, big.ok === false && String(big.error).indexOf('10') >= 0);
+
+const isolatedSheet = '1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ';
+const isolatedDrive = '1pap27ixWjsIUpmIWzRI6pI0YPj_okD18';
+function withProps(props, fn) {
+  global.__FS_TEST_PROPS__ = props;
+  try { return fn(); } finally { delete global.__FS_TEST_PROPS__; }
+}
+let sheetOpened = false;
+global.SpreadsheetApp = { openById: function () { sheetOpened = true; throw new Error('opened'); } };
+global.DriveApp = { getFolderById: function () { sheetOpened = true; throw new Error('opened'); } };
+const wrongSheet = withProps({ AC01_SPREADSHEET_ID: 'OTHER-SHEET-NOT-ISOLATED' }, function () {
+  return call(engine, advisor.token, 'getPlans', {});
+});
+const wrongDrive = withProps({ DRIVE_ROOT_ID: 'OTHER-DRIVE-NOT-ISOLATED' }, function () {
+  return call(engine, '', 'login', { jobId: 'AC01-SYN-ADVISOR', password: 'synthetic-only-not-a-real-secret' });
+});
+const matched = withProps({
+  AC01_SPREADSHEET_ID: isolatedSheet,
+  AC01_DRIVE_ROOT_ID: isolatedDrive,
+  SECRET_PROPERTY: 'do-not-leak'
+}, function () { return call(engine, advisor.token, 'getEffectiveTargets', {}); });
+delete global.SpreadsheetApp;
+delete global.DriveApp;
+const matchedText = JSON.stringify(matched.data || {});
+rec('R4', 'SYN-R4-TARGET-MISMATCH', { sheet: 'other', drive: 'other' }, 'TARGET_MISMATCH before open', {
+  sheet: wrongSheet.code,
+  drive: wrongDrive.code,
+  opened: sheetOpened
+}, wrongSheet.code === 'TARGET_MISMATCH' && wrongDrive.code === 'TARGET_MISMATCH' && sheetOpened === false && String(wrongSheet.error).indexOf('OTHER-SHEET') < 0 && String(wrongDrive.error).indexOf('OTHER-DRIVE') < 0);
+rec('R4', 'SYN-R4-TARGET-MATCH', { override: 'same isolated ids' }, 'two ids only, secret omitted', {
+  spreadsheetId: matched.data && matched.data.spreadsheetId,
+  driveRootId: matched.data && matched.data.driveRootId,
+  leaked: matchedText.indexOf('do-not-leak') >= 0
+}, matched.ok && matched.data.spreadsheetId === isolatedSheet && matched.data.driveRootId === isolatedDrive && matched.data.productionData === false && matchedText.indexOf('do-not-leak') < 0 && matchedText.indexOf('SECRET_PROPERTY') < 0);
+const noTokenTargets = call(engine, '', 'getEffectiveTargets', {});
+const prod = call(engine, advisor.token, 'enableProduction', { productionData: true });
+rec('R4', 'SYN-R4-ANON-AND-PROD', {}, 'unauthenticated and no production mode', [noTokenTargets.code, prod.code, me.data && me.data.buildId], noTokenTargets.code === 'UNAUTHENTICATED' && prod.code === 'PRODUCTION_MODE_CLOSED' && me.data.buildId === 'ac01-sim-test-20261118' && me.data.productionData === false);
+
 const outDir = path.join(root, 'tests/synthetic/results');
 fs.mkdirSync(outDir, { recursive: true });
 const summary = {
+  kind: 'synthetic',
+  live: 'BLOCKED',
+  liveNote: 'No live GAS or Sheet call. Forthcoming QA live rounds are a separate set and are not these results.',
   version,
   environment: 'synthetic-memory',
   backend: 'gas/release/Code.js',
+  buildId: 'ac01-sim-test-20261118',
+  dataMode: 'simulated-test',
+  productionData: false,
   passed: results.filter((r) => r.status === 'pass').length,
   failed: results.filter((r) => r.status === 'fail').length,
   results
 };
 fs.writeFileSync(path.join(outDir, 'node-rounds.json'), JSON.stringify(summary, null, 2));
+['R1', 'R2', 'R3', 'R4'].forEach((round) => {
+  const rows = results.filter((r) => r.round === round);
+  fs.writeFileSync(path.join(outDir, 'synthetic-' + round.toLowerCase() + '.json'), JSON.stringify({
+    kind: 'synthetic', live: 'BLOCKED', round, passed: rows.filter((r) => r.status === 'pass').length, failed: rows.filter((r) => r.status === 'fail').length, results: rows
+  }, null, 2));
+});
 console.log(JSON.stringify({ passed: summary.passed, failed: summary.failed }));
 process.exit(summary.failed ? 1 : 0);

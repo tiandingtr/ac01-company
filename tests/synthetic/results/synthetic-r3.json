@@ -1,0 +1,260 @@
+{
+  "kind": "synthetic",
+  "live": "BLOCKED",
+  "round": "R3",
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "round": "R3",
+      "id": "SYN-R3-RELATED-ECHO",
+      "input": {
+        "relatedId": "SYN-REL-1"
+      },
+      "expected": "echoed",
+      "actual": "SYN-REL-1",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-RELATED-LIST",
+      "input": {
+        "relatedId": "SYN-REL-1"
+      },
+      "expected": "visible on file",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-PROPOSAL-FILE",
+      "input": {
+        "title": "SYN_PROPOSAL"
+      },
+      "expected": "计划与策划书",
+      "actual": "计划与策划书",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONTRACT-LEDGER",
+      "input": {
+        "contractNo": "SYN-C-1"
+      },
+      "expected": "草稿",
+      "actual": "草稿",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-OFFICIAL-LOCKED",
+      "input": {
+        "action": "generateOfficialContract"
+      },
+      "expected": "GENERATION_CLOSED",
+      "actual": "GENERATION_CLOSED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONTRACT-DASH",
+      "input": {
+        "contractNo": "SYN-C-1"
+      },
+      "expected": "on dashboard",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-LEDGER",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "balanced draft",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONFIRM-UNFINISHED",
+      "input": {
+        "lineId": "JL-MWKYXVERF5MGOG"
+      },
+      "expected": "rejected",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-WAIVE",
+      "input": {
+        "lineId": "JL-MWKYXVERF5MGOG"
+      },
+      "expected": "免原件",
+      "actual": "免原件",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONFIRM",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "confirmed",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-PREVIEW-NOT-POSTED",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "not persisted",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-FOUR-CSV",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "draft csv, not posted",
+      "actual": {
+        "status": "模拟/草稿 非正式凭证",
+        "formal": false,
+        "postedBefore": false,
+        "replay": true,
+        "mark": true
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-PDF-GATED",
+      "input": {
+        "format": "pdf"
+      },
+      "expected": "PDF_UNSUPPORTED",
+      "actual": "PDF_UNSUPPORTED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CASH-CONTRACT-MONTH",
+      "input": {
+        "storedMonth": "2024-12-01",
+        "query": "2024-12"
+      },
+      "expected": "linked income listed",
+      "actual": "SYN-C-1",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-ORDER-GAP",
+      "input": {
+        "orderId": "ORD-1"
+      },
+      "expected": "ORDER_UNSUPPORTED",
+      "actual": "ORDER_UNSUPPORTED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-INVOICE-DRAFT",
+      "input": {
+        "contractNo": "SYN-C-1"
+      },
+      "expected": "draft mark, no official number",
+      "actual": {
+        "status": "模拟/草稿 非正式凭证",
+        "official": false,
+        "same": "DRAFT-MWKYXVEXVOGM96"
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-RECONCILE",
+      "input": {
+        "contractNo": "SYN-C-1"
+      },
+      "expected": "contract, cash, file, draft; no order",
+      "actual": {
+        "orderSupported": false
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    }
+  ]
+}

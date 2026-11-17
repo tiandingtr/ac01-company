@@ -1,0 +1,133 @@
+{
+  "kind": "synthetic",
+  "live": "BLOCKED",
+  "round": "R1",
+  "passed": 9,
+  "failed": 0,
+  "results": [
+    {
+      "round": "R1",
+      "id": "SYN-R1-AUTH-OK",
+      "input": {
+        "jobId": "AC01-SYN-ADVISOR"
+      },
+      "expected": "顾问会话",
+      "actual": "顾问",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-OPENING-FLAG",
+      "input": {},
+      "expected": "default false",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-NO-TOKEN",
+      "input": {
+        "action": "getPlans"
+      },
+      "expected": "UNAUTHENTICATED",
+      "actual": "UNAUTHENTICATED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-BAD-PASSWORD",
+      "input": {
+        "password": "wrong"
+      },
+      "expected": "拒绝",
+      "actual": "工号或口令不正确，已拒绝。",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-DISABLED",
+      "input": {
+        "jobId": "AC01-SYN-DISABLED"
+      },
+      "expected": "拒绝",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-EMPTY-AUTH",
+      "input": {
+        "users": []
+      },
+      "expected": "AUTH_STORE_MISSING",
+      "actual": "AUTH_STORE_MISSING",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-MONTH-CANON",
+      "input": {
+        "value": "2026-11-01"
+      },
+      "expected": "2026-11",
+      "actual": "2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-SHEET-TEXT",
+      "input": {
+        "month": "2026-11"
+      },
+      "expected": "'2026-11",
+      "actual": "'2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-DATE-COERCION",
+      "input": {
+        "date": "2026-11-01+08"
+      },
+      "expected": "2026-11",
+      "actual": "2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    }
+  ]
+}

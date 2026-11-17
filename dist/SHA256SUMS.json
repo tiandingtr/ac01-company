@@ -1,0 +1,400 @@
+{
+  "buildId": "ac01-sim-test-20261118",
+  "files": [
+    {
+      "path": "dist/ac01-gas/CONTRACT.json",
+      "sha256": "5fa8b480e878f2ff28998c26191758291ada03019e65493a67bc624c4df651db",
+      "bytes": 1663
+    },
+    {
+      "path": "dist/ac01-gas/Code.js",
+      "sha256": "bba6140d9976c46e6b5785a3cdc3434f7d8fa4b59792b65305071a82085f669c",
+      "bytes": 124837
+    },
+    {
+      "path": "dist/ac01-gas/RELEASE.txt",
+      "sha256": "41ea130e2bf65699b5b3cd8f593cb2c543cbb440995948cb7aa09b742f2348ca",
+      "bytes": 2383
+    },
+    {
+      "path": "dist/ac01-gas/appsscript.json",
+      "sha256": "6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415",
+      "bytes": 207
+    },
+    {
+      "path": "dist/ac01-pages/.nojekyll",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "dist/ac01-pages/IMAGE_CREDITS.md",
+      "sha256": "146bc4856134766547805a6a01e56aaff39ff55c0db21c94b4b1c30cdf367e4f",
+      "bytes": 1403
+    },
+    {
+      "path": "dist/ac01-pages/about.html",
+      "sha256": "f43f77521d890d9fd69166635e8cca60e6a1e1343d7414409da27e21eae22352",
+      "bytes": 12351
+    },
+    {
+      "path": "dist/ac01-pages/apple-touch-icon.png",
+      "sha256": "5619524b77f821050dbeb90626439f5e1c89dd3c532877e17da7573adf6a0b2e",
+      "bytes": 4455
+    },
+    {
+      "path": "dist/ac01-pages/b2b.html",
+      "sha256": "aa6cb9a1265f4c47c34148920c53cf9ce1c9c6f5a5be5a90d185a0ec2a36a47d",
+      "bytes": 11176
+    },
+    {
+      "path": "dist/ac01-pages/contact.html",
+      "sha256": "7860994ad29fef247ee862ec764f15692118447793912563dfe604d460060da9",
+      "bytes": 8140
+    },
+    {
+      "path": "dist/ac01-pages/favicon-32.png",
+      "sha256": "b087a4e3701c70bfb0ccf77e6a4c2a565a093fe3c1ca8f412b5e23ccacec5b3c",
+      "bytes": 777
+    },
+    {
+      "path": "dist/ac01-pages/favicon.svg",
+      "sha256": "2250ee8fe52e851928b3d19d1a5640eaa99a3858b359be0c593dac85bd3e493d",
+      "bytes": 361
+    },
+    {
+      "path": "dist/ac01-pages/finance.html",
+      "sha256": "c6d3edb2b81555b41ebdd68513d79b3c753a3ee3c22dee6c4edeee91e3a6b006",
+      "bytes": 15754
+    },
+    {
+      "path": "dist/ac01-pages/hk-electronics-fair-autumn-2026.html",
+      "sha256": "c81bfe901a0fdc5c19aa3eba93177075463c2df8e936e52d879168ab9d887298",
+      "bytes": 7391
+    },
+    {
+      "path": "dist/ac01-pages/hk-outdoor-tech-light-expo-2026.html",
+      "sha256": "cb2da3977abc3bb48aea0f83ceeb95cd555cf6dfbec1370cc72158dc8e0c6c6a",
+      "bytes": 7700
+    },
+    {
+      "path": "dist/ac01-pages/index.html",
+      "sha256": "fd4be74bc087330d023b821239b18b91caf453954538093865e27d184876f879",
+      "bytes": 16506
+    },
+    {
+      "path": "dist/ac01-pages/jiansanjiang-visit.html",
+      "sha256": "fea8ea603e07156d6a4556e8cc210f5b685fdda5a9a3fded6987a5badde45b00",
+      "bytes": 7806
+    },
+    {
+      "path": "dist/ac01-pages/process.html",
+      "sha256": "d9850602c2653a99a226591fbccfd64c411ded9afaa373713377279b89c45a6a",
+      "bytes": 9379
+    },
+    {
+      "path": "dist/ac01-pages/products.html",
+      "sha256": "6cbf84ceb2f323fb84da0c3e66b958745636323563de71ae21274ce2dd53b3e8",
+      "bytes": 11129
+    },
+    {
+      "path": "dist/ac01-pages/science.html",
+      "sha256": "4364fb831dc807c409136d705a68beac738426933c4efed855985daa04cfb9d6",
+      "bytes": 22122
+    },
+    {
+      "path": "dist/ac01-pages/admin/account-setup.html",
+      "sha256": "f24e088b2d038d5c1c2f4e95303852d5a33b3fbcab4f653908053d774697ffad",
+      "bytes": 5056
+    },
+    {
+      "path": "dist/ac01-pages/admin/index.html",
+      "sha256": "473c73d9c8cf4af9b1ae4c054d6d1909df2bb86401b3f8be6872b57056d5d843",
+      "bytes": 2434
+    },
+    {
+      "path": "dist/ac01-pages/admin/login.html",
+      "sha256": "a4bc7ad91c67ba36bb8d76c95eb9742371a8525fae06dc7b1777e0d67aa60e44",
+      "bytes": 2848
+    },
+    {
+      "path": "dist/ac01-pages/admin/css/admin.css",
+      "sha256": "f2888ee616302255ce702d79193fe0b2acbdf8651d0f992076a404fdbba69353",
+      "bytes": 8400
+    },
+    {
+      "path": "dist/ac01-pages/admin/js/api.js",
+      "sha256": "353a8cb96d9bb0614dd2661ce1baa9205eb98f12a0a371f6f63a6033ac3588a4",
+      "bytes": 7205
+    },
+    {
+      "path": "dist/ac01-pages/admin/js/app.js",
+      "sha256": "bbed62c79f0783cfeeab5abb1ce0322b290e8b50d8d4d253ecb03e0bd1d2234a",
+      "bytes": 59330
+    },
+    {
+      "path": "dist/ac01-pages/admin/js/build.js",
+      "sha256": "7ba66df15ce4a2c3e66b79cd4d970517b849d2bb49a99c147c105cb048c4db20",
+      "bytes": 207
+    },
+    {
+      "path": "dist/ac01-pages/admin/js/config.js",
+      "sha256": "0d5c8f1cb36e8e961d7db05f68dff69a3e585b33b2c57d61258b0a95e0f282d5",
+      "bytes": 227
+    },
+    {
+      "path": "dist/ac01-pages/admin/js/rules.js",
+      "sha256": "65c671bc0a393ea0ddde32883107fddd1e64deee87b0b5ec54251037b71d80d3",
+      "bytes": 3589
+    },
+    {
+      "path": "dist/ac01-pages/assets/global.js",
+      "sha256": "d905ef5748754b020b671e294aea9b813fe3a8b00827646371207dbc1779c165",
+      "bytes": 4414
+    },
+    {
+      "path": "dist/ac01-pages/assets/logo-horizontal-white.svg",
+      "sha256": "57132556e2b3458161d5d8f6f9df6e8ee290f39aad32400f91e8cf4623b8371d",
+      "bytes": 6465
+    },
+    {
+      "path": "dist/ac01-pages/assets/logo-horizontal.svg",
+      "sha256": "d477c147a7769c9c8f5f71dc2d356f71b48d9f456a55dcf046e5840ee58c1546",
+      "bytes": 6465
+    },
+    {
+      "path": "dist/ac01-pages/assets/logo-mark.svg",
+      "sha256": "32ba14eaf09e22b6cfcdba24730babc858116248567422aa81c1fba17b32c286",
+      "bytes": 424
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/ecommerce.webp",
+      "sha256": "b87fb3ae6afd49519f2c3f30b738f3109cf22461749c975ef833de6a85f5212c",
+      "bytes": 26238
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/factory.mp4",
+      "sha256": "de35c5add7333cd8d882c81d28b455ab2c13ddc714feebbfe202a6d78671ea26",
+      "bytes": 5770893
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/founder.jpg",
+      "sha256": "1a1a3a0bdbc4afafb7ff365d8f2dc11b2476fc4b7844eea5ae02274542772cd6",
+      "bytes": 51050
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/health.webp",
+      "sha256": "2f49f6f47aa69f0b911f6736ab0e2138c41672b601da78d780c52871c2312a67",
+      "bytes": 97424
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/hero.webp",
+      "sha256": "f102d24b4f9505b4f954e91a0bd8fcb9e22b45136102a081142e04ba95d6449c",
+      "bytes": 77528
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/marketing.webp",
+      "sha256": "de373b36503590bf906dd409c25f5d4ee39592ec010187fb28972e58087afc05",
+      "bytes": 55056
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/purple-rice.webp",
+      "sha256": "9530e0194c4c915eede75e494e712a977f0002f05cdffaa79c7fbe68abafd5d2",
+      "bytes": 112746
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/tech.jpg",
+      "sha256": "bfcd949ec4ef38d7c9dd10f47e2dcae1182f27424562acee17d96e5dbb1cf68d",
+      "bytes": 2533354
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/tech.webp",
+      "sha256": "163e2efbe35e40c2f82d676bf9a2836101e4fb0f7fe68b6d709c9740f78d3282",
+      "bytes": 34164
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/trace.mp4",
+      "sha256": "1e6d0d25afe6ab502b8384b228ce568febfb6b535a900cb71ae8de52fa563589",
+      "bytes": 6935673
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-electronics-fair-autumn-2026/01.jpg",
+      "sha256": "b47d7f6b0a579847df3375b6bcff360701220e135aa1992a6f6e45310ea12ba9",
+      "bytes": 249435
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-electronics-fair-autumn-2026/02.jpg",
+      "sha256": "0c79e78885de589bfc0b28e45e860549c483ece1d8616d928976506adfee30fa",
+      "bytes": 267267
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-electronics-fair-autumn-2026/03.jpg",
+      "sha256": "774084a473c060394d9ab19146514821824108c984c543cc56e415d454b846ba",
+      "bytes": 264961
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-electronics-fair-autumn-2026/04.jpg",
+      "sha256": "7f39a8d2f0b43f739d72a2e2b01d19755cbd10a74b5053ed9fabf8040f8265f2",
+      "bytes": 334933
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-outdoor-tech-light-expo-2026/01.jpg",
+      "sha256": "ecf19cf60da4cdd293456d8451a81204c78b7014d7f095cae8dbf7a2d98efa88",
+      "bytes": 300828
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-outdoor-tech-light-expo-2026/02.jpg",
+      "sha256": "4bcaa5e6e195b3903340c03d359c088b2569c5ffcbeafebdd56585518a63e96f",
+      "bytes": 330800
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-outdoor-tech-light-expo-2026/03.jpg",
+      "sha256": "09b6bd755ee3919752e1420825d95f0194c9c50fe68bc6fa2051a3373c50b104",
+      "bytes": 287510
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/hk-outdoor-tech-light-expo-2026/04.jpg",
+      "sha256": "128ad529395dc7e8e857739ddf8683c2108e5255d482c1700862ad477dca087e",
+      "bytes": 254508
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/jiansanjiang/01.jpg",
+      "sha256": "eb321b62016f24ba2adee3f930b8160daaf6378f51bee64ede387a06391e8c2d",
+      "bytes": 4987268
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/jiansanjiang/02.jpg",
+      "sha256": "989f4f284fb1ac371218b97e9739274ac4f3877538e275300af35d153793723f",
+      "bytes": 4058351
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/jiansanjiang/03.jpg",
+      "sha256": "c4f236c831b49e4801a149890a9e7e075e1bb948aebac1f39a265c78a41ff1f1",
+      "bytes": 4588167
+    },
+    {
+      "path": "dist/ac01-pages/assets/img/news/jiansanjiang/04.jpg",
+      "sha256": "f4c8afb772515f36460b5981ede93ed4ba9224d50c2e81d825495f59daeaf00e",
+      "bytes": 2953381
+    },
+    {
+      "path": "dist/ac01-pages/c/app.js",
+      "sha256": "4fd5f2590e2f57b1f0130e2d5b24641943d6ad075a6fde81c89f8be58df1cd91",
+      "bytes": 14557
+    },
+    {
+      "path": "dist/ac01-pages/c/board.css",
+      "sha256": "64dbec3d744b18d56df211903949ef20dc73faa860ad53ded4303b96bcf3e448",
+      "bytes": 7135
+    },
+    {
+      "path": "dist/ac01-pages/c/data.enc.json",
+      "sha256": "1e4ba89f1b4c9078484e614428bd3829be75d338abe60b5d68addfe031b13ab5",
+      "bytes": 2964
+    },
+    {
+      "path": "dist/ac01-pages/c/index.html",
+      "sha256": "26db37dfef1f4467b600113b07754c36592c98bf8d4d02afa0d32b9a1b42412b",
+      "bytes": 2152
+    },
+    {
+      "path": "dist/ac01-pages/en/about.html",
+      "sha256": "af76ab5a42ebd8aee7b21820fb25bb75653d4cfce57fc0d63748181678e822ee",
+      "bytes": 15166
+    },
+    {
+      "path": "dist/ac01-pages/en/b2b.html",
+      "sha256": "455b3a7e525d93956251eb51b03f360a9082a3d71790a5f08e0971628ca7a9e9",
+      "bytes": 13627
+    },
+    {
+      "path": "dist/ac01-pages/en/contact.html",
+      "sha256": "003806d8debf6e3b941a4136e6e4f28a09dfa500030affa7780237bd3de04564",
+      "bytes": 10002
+    },
+    {
+      "path": "dist/ac01-pages/en/hk-electronics-fair-autumn-2026.html",
+      "sha256": "c4f12a8e7255a07da222832831970efa3b476541491ffeeb0b14219e657d0e79",
+      "bytes": 7603
+    },
+    {
+      "path": "dist/ac01-pages/en/hk-outdoor-tech-light-expo-2026.html",
+      "sha256": "75f5476afebabc48f9ea234ce3a83fb43864b7c7e1e33cd885c913ec933249b7",
+      "bytes": 7903
+    },
+    {
+      "path": "dist/ac01-pages/en/index.html",
+      "sha256": "88e8709491e513664521027c9de9a9878ceea16e28eebf530dcd04c38ce0ff87",
+      "bytes": 19710
+    },
+    {
+      "path": "dist/ac01-pages/en/jiansanjiang-visit.html",
+      "sha256": "f3db9c75058bbb694dd4e7e6467fa939fc4f7c5e00f35387c9eecad113f8eb13",
+      "bytes": 8391
+    },
+    {
+      "path": "dist/ac01-pages/en/process.html",
+      "sha256": "ecdad1917a317948de308448f4d611996ede649dd4799151835c1507cc68fc8f",
+      "bytes": 10789
+    },
+    {
+      "path": "dist/ac01-pages/en/products.html",
+      "sha256": "70901a89bfa7e1da8905a958dfc9cb1bd011f63d8db7afc94254f764ec1fe70f",
+      "bytes": 12857
+    },
+    {
+      "path": "dist/ac01-pages/en/science.html",
+      "sha256": "5ce2f1da8dc50063307e3e369f582281d3964c169f56cc4cddce9e41e262ea10",
+      "bytes": 22693
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/about.html",
+      "sha256": "d0f740e10d8259d88df82efc2f2dfde73b7caee01aa05ee756066cfb481a62bd",
+      "bytes": 14606
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/b2b.html",
+      "sha256": "bbfb3343a428ef03a93b2535d209a6a14cd791fd22d9df2b60d49974a629939e",
+      "bytes": 13333
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/contact.html",
+      "sha256": "fe2a52fc953287abd3699f4db04a74afb585bcb630481712ee1d720a1ce0829a",
+      "bytes": 10278
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/hk-electronics-fair-autumn-2026.html",
+      "sha256": "66eceaccacfc9da87ba1a867f8e96f593737ff9da2949690648a07f9a926bfaf",
+      "bytes": 7403
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/hk-outdoor-tech-light-expo-2026.html",
+      "sha256": "342403699ff82d111ae4fe3a692bf64913dc773479b516ff55efa7ce9005b906",
+      "bytes": 7712
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/index.html",
+      "sha256": "1255d2d81931ac6d3baf5acd7f4b316fe3a98062ec41f1570274c0117a9cee19",
+      "bytes": 19719
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/jiansanjiang-visit.html",
+      "sha256": "a12cf3e1c3196bcdffd7b5ce44e90d80ab51d7aeb7df0caf2441cbc4f1b295e4",
+      "bytes": 7818
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/process.html",
+      "sha256": "a1e90889f82e8d85d1de39c6f468156bf169ac46d4db61ee39d7137cd7c2fd09",
+      "bytes": 10764
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/products.html",
+      "sha256": "b4f4ea5c041a85a9f45e8f47875a32f72c1edab4467d55c510bc5b6227e5025e",
+      "bytes": 12866
+    },
+    {
+      "path": "dist/ac01-pages/zh-hans/science.html",
+      "sha256": "8b8066526a26d86c43891eb57d2fe74290b26a933b0c05c78baa9bd16e161163",
+      "bytes": 22119
+    }
+  ]
+}

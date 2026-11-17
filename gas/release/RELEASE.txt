@@ -1,0 +1,27 @@
+AC01 simulated-test release notes. Do not run these steps until the host finishes the final gate.
+This file does not deploy, push, or change ScriptProperties.
+
+Build id: ac01-sim-test-20261118
+Data mode: simulated-test
+Production data: false
+Known exec (do not replace): https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec
+Isolated Sheet, fail closed if different: 1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ
+Isolated Drive root, fail closed if different: 1pap27ixWjsIUpmIWzRI6pI0YPj_okD18
+
+Artifacts
+- dist/ac01-pages/  dependency-free static files for the existing GitHub Pages site. admin/js/config.js still points at the known exec.
+- dist/ac01-gas/Code.js and dist/ac01-gas/appsscript.json  backend source. The manifest bytes match live v1 SHA 6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415 (Asia/Singapore, V8, STACKDRIVER, executeAs USER_DEPLOYING, access ANYONE_ANONYMOUS).
+- gas/baseline/  the 2026-11-17 import. Its manifest has no webapp block and must not be copied over the live manifest.
+
+Host release, only after the final gate
+1. Publish dist/ac01-pages to the existing GitHub Pages branch for tiandingtr/ac01-company. Do not point config.js at a new host.
+2. Push dist/ac01-gas/Code.js together with dist/ac01-gas/appsscript.json onto the existing script id, then create a new immutable version and point the existing exec deployment at that version.
+3. Do not import real client or bank data. Do not post formal books. Do not delete old rows.
+4. QA signs in and checks the authenticated marker ac01-sim-test-20261118 · simulated-test · 非生产数据.
+5. An authenticated getEffectiveTargets call may show only the two isolated ids. It must not list other ScriptProperties.
+
+Rollback source, not executed here
+- Pages: republish the previous Pages tree from git d5d980876b39ebfde059d7dcf71075f5e67e8df9, or from the commit that was live before this release. Do not delete Sheet rows to roll back.
+- Apps Script: redeploy immutable version 1. Its Code.js SHA is ac6270882eea6090cc2fd328f491db2f4478f8bfa9c172a6566c606d60c1df58 and its manifest SHA is 6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415.
+- Do not restore gas/baseline/appsscript.json onto the live script. That file has no webapp block.
+- Do not set, clear, or dump ScriptProperties as part of rollback.

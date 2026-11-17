@@ -146,6 +146,7 @@ button, input, select, textarea { font: inherit; }
 .top h2 { margin: 0; font-size: 18px; color: var(--navy); }
 .top-title { min-width: 0; }
 .gate-note { margin: 4px 0 0; font-size: 12px; color: var(--warn); font-weight: 700; }
+.build-marker { margin: 2px 0 0; font-size: 11px; color: var(--muted); letter-spacing: .01em; }
 .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .status {
   display: none;

@@ -1,26 +1,19 @@
 {
-  "repoCommitBeforeChange": "d5d980876b39ebfde059d7dcf71075f5e67e8df9",
-  "baseline": {
-    "source": "verified import 2026-11-17 22:37 Asia/Shanghai",
-    "note": "Byte-identical to the attached import. Not proof of the live Apps Script deployment.",
-    "files": {
-      "gas/baseline/Code.js": "ac6270882eea6090cc2fd328f491db2f4478f8bfa9c172a6566c606d60c1df58",
-      "gas/baseline/appsscript.json": "e91e4f253322e87f5a3dd8b79913f966a42315fb5577fba0b28578aa1b122e49"
-    }
-  },
-  "release": {
-    "note": "Host-authorized release candidate. Not deployed. Does not connect to Sheets or Drive.",
-    "files": {
-      "gas/release/Code.js": "135b30ff66ab333e714233c96981d6c70cd90495a772a337591f4e17a3071691",
-      "gas/release/appsscript.json": "e91e4f253322e87f5a3dd8b79913f966a42315fb5577fba0b28578aa1b122e49",
-      "gas/release/CONTRACT.json": "see file"
-    },
-    "manifest": "unchanged from baseline"
-  },
+  "buildId": "ac01-sim-test-20261118",
+  "dataMode": "simulated-test",
+  "productionData": false,
+  "frontendConfigExec": "https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec",
+  "isolatedSpreadsheetId": "1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ",
+  "isolatedDriveRootId": "1pap27ixWjsIUpmIWzRI6pI0YPj_okD18",
+  "liveV1CodeSha256": "ac6270882eea6090cc2fd328f491db2f4478f8bfa9c172a6566c606d60c1df58",
+  "releaseCodeSha256": "bba6140d9976c46e6b5785a3cdc3434f7d8fa4b59792b65305071a82085f669c",
+  "releaseManifestSha256": "6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415",
+  "importManifestSha256DoNotDeploy": "e91e4f253322e87f5a3dd8b79913f966a42315fb5577fba0b28578aa1b122e49",
   "frontend": {
-    "admin/js/rules.js": "65c671bc0a393ea0ddde32883107fddd1e64deee87b0b5ec54251037b71d80d3",
+    "admin/js/app.js": "bbed62c79f0783cfeeab5abb1ce0322b290e8b50d8d4d253ecb03e0bd1d2234a",
     "admin/js/api.js": "353a8cb96d9bb0614dd2661ce1baa9205eb98f12a0a371f6f63a6033ac3588a4",
-    "admin/js/app.js": "95710615548eba2fa9cd5db5f02d52838be50b0197ecee11e5006d4ad0fe642e"
+    "admin/js/build.js": "7ba66df15ce4a2c3e66b79cd4d970517b849d2bb49a99c147c105cb048c4db20",
+    "admin/js/rules.js": "65c671bc0a393ea0ddde32883107fddd1e64deee87b0b5ec54251037b71d80d3"
   },
-  "liveWebApp": "admin/js/config.js still points at the existing Apps Script URL. Shipping the frontend alone does not upgrade the live backend."
+  "deploy": "Not performed. Host final gate still required."
 }

@@ -9,6 +9,7 @@
   let selectedMonth = '';
   let asOf = '';
   let selectedContract = null;
+  let invoiceCsvByNo = {};
   let renderToken = 0;
   const Rules = window.FSRules;
 
@@ -21,6 +22,18 @@
     if (!el) return;
     el.className = 'status' + (message ? ' show ' + (type || 'info') : '');
     el.textContent = message || '';
+  }
+
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
 
   function newRequestId(prefix) {
@@ -95,6 +108,14 @@
         gate.textContent = data.openingConfirmed
           ? '期初已确认。正式定稿仍须完成配平、完成页确认，且由接口放行。对客正式合同生成已关闭。'
           : '期初待确认，禁止正式记账。对客正式合同生成已关闭。';
+      }
+      const marker = document.getElementById('build-marker');
+      const pageBuild = (window.AC01_BUILD && window.AC01_BUILD.buildId) || '';
+      if (marker) {
+        marker.textContent = (data.buildId || pageBuild) + ' · ' + (data.dataMode || '') + ' · 非生产数据';
+      }
+      if (!data.buildId || data.buildId !== pageBuild || data.productionData !== false || data.dataMode !== 'simulated-test') {
+        showStatus('页面版本与接口版本不一致，或接口不是隔离模拟测试发布。', 'danger');
       }
       await render();
     } catch (e) {
@@ -617,6 +638,7 @@
     return `
       ${d.month.posted ? alertBox('ok', '本月已定稿。含暂记往来的项目已在表内标明，不作为已齐备的审计附件，直至取得真凭证并完成调整。') : alertBox('info', decision.allowed ? '本月工作底稿条件已齐，且期初已确认。定稿仍由接口再次校验。' : decision.reasons.join(' '))}
       ${previewOk ? '<button class="btn teal" id="preview-four" type="button">预览四套账（不定稿，不写入）</button>' : '<button class="btn teal" id="preview-four" type="button" disabled aria-disabled="true">预览四套账（不定稿，不写入）</button>'}
+      ${previewOk ? '<button class="btn ghost" id="export-four" type="button">下载四套账草稿 CSV</button>' : '<button class="btn ghost" id="export-four" type="button" disabled aria-disabled="true">下载四套账草稿 CSV</button>'}
       ${d.month.posted ? '' : `<button class="btn amber" id="post-four" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">定稿并写入正式四套账</button>`}
       <p class="hint">${d.month.posted ? '' : E(decision.allowed ? '此按钮会请求接口写入正式四套账。' : decision.reasons.join(' '))}</p>
       <div style="margin-top:16px">${blocks}</div>`;
@@ -774,7 +796,29 @@
       }
       withSubmit(preview, async () => {
         const out = await api('previewFourStatements', { yearMonth: selectedMonth, __timeoutMs: 20000 });
-        showStatus((out && out.summary) ? out.summary : '已生成预览，未定稿，未写入。', out && out.openingConfirmed ? 'ok' : 'info');
+        showStatus((out && out.documentStatus ? out.documentStatus + '。' : '') + ((out && out.summary) ? out.summary : '已生成预览，未定稿，未写入。'), 'info');
+      });
+    });
+    const exp = document.getElementById('export-four');
+    if (exp) exp.addEventListener('click', () => {
+      if (exp.disabled) {
+        showStatus('草稿导出条件未满足，未请求接口。', 'danger');
+        return;
+      }
+      if (!exp.dataset.req) exp.dataset.req = newRequestId('EX');
+      withSubmit(exp, async () => {
+        const out = await api('exportFourStatementsDraft', {
+          yearMonth: selectedMonth,
+          format: 'csv',
+          clientRequestId: exp.dataset.req,
+          __timeoutMs: 20000
+        });
+        if (!out.csv || String(out.documentStatus) !== '模拟/草稿 非正式凭证' || out.formal === true) {
+          showStatus('导出结果缺少草稿标记，已拒绝下载。', 'danger');
+          return;
+        }
+        downloadText(out.filename || '四套账草稿.csv', out.csv);
+        showStatus('已下载四套账草稿 CSV。' + out.documentStatus + '。未定稿。', 'ok');
       });
     });
     const post = document.getElementById('post-four');
@@ -815,10 +859,17 @@
       <td>${E(i.amount)} ${E(i.currency)}</td><td>${badge(i.status)}</td>
     </tr>`).join() && ''; // fix below
     const invoices = (d.invoices || []);
-    const invRows = invoices.map((i) => `<tr><td>${E(i.invoiceNo)}</td><td>${E(i.contractNo)}</td><td>${E(i.date)}</td><td>${E(i.amount)} ${E(i.currency)}</td><td>${badge(i.status)}</td></tr>`).join('');
+    invoiceCsvByNo = {};
+    invoices.forEach((i) => { if (i && i.csv) invoiceCsvByNo[i.invoiceNo] = { csv: i.csv, filename: i.filename || (i.invoiceNo + '-草稿.csv') }; });
+    const invRows = invoices.map((i) => `<tr>
+      <td>${E(i.invoiceNo)}</td><td>${E(i.contractNo)}</td><td>${E(i.date)}</td>
+      <td>${E(i.amount)} ${E(i.currency)}</td>
+      <td>${badge(i.status || '模拟/草稿 非正式凭证')}</td>
+      <td>${i.csv ? `<button class="btn small ghost" type="button" data-csv="${E(i.invoiceNo)}">下载草稿 CSV</button>` : '—'}</td>
+    </tr>`).join('');
     viewEl.innerHTML = `
-      ${alertBox('info', '对客正式合同生成入口已关闭，接口同样拒绝 generateOfficialContract。本模块只做台账、流程、状态和文件归档。')}
-      <div class="disabled-note" style="margin-bottom:16px">「生成正式合同文本」不可用。模板未经审定前，不得对客生成。</div>
+      ${alertBox('info', '对客正式合同生成入口已关闭。订单模块不存在：合同台账不是订单。发票只能生成「模拟/草稿 非正式凭证」，不能取得官方发票号。')}
+      <div class="disabled-note" style="margin-bottom:16px">「生成正式合同文本」不可用。源码没有订单表、订单编号或订单动作。</div>
       <div class="card" style="margin-bottom:16px">
         <h3>新建合同台账（非正式文本）</h3>
         <form id="ct-form">
@@ -841,9 +892,18 @@
       </div>
       ${current ? renderContractDetail(current, d.files || []) : ''}
       <div class="card">
-        <h3>发票台账</h3>
-        <table><thead><tr><th>发票号</th><th>合同号</th><th>日期</th><th>金额</th><th>状态</th></tr></thead>
-        <tbody>${invRows || '<tr><td colspan="5" class="muted">暂无发票。预览不开放对客自动开票。</td></tr>'}</tbody></table>
+        <h3>发票草稿（非正式）</h3>
+        <p class="hint">订单：不存在。金额只取合同台账，或取已经写上同一合同号的收入记录。不计算税额，不分配官方发票号，不盖章。</p>
+        ${current ? `<form id="inv-form">
+          <div class="form-row">
+            <div class="field"><label for="inv-contract">合同号</label><input id="inv-contract" name="contractNo" value="${E(current.contractNo)}" required></div>
+            <div class="field"><label for="inv-line">收入记录编号（可选）</label><input id="inv-line" name="lineId" placeholder="CA- 或 JL-"></div>
+            <div class="field"><label for="inv-file">已上传文件编号（可选）</label><input id="inv-file" name="fileId" placeholder="FL-"></div>
+          </div>
+          <button class="btn teal small" type="submit">生成发票草稿</button>
+        </form>` : '<p class="muted">先写入合同台账，才能生成草稿。</p>'}
+        <table style="margin-top:12px"><thead><tr><th>草稿编号</th><th>合同号</th><th>草稿日期</th><th>金额</th><th>状态</th><th></th></tr></thead>
+        <tbody>${invRows || '<tr><td colspan="6" class="muted">暂无草稿。这里不会出现正式发票。</td></tr>'}</tbody></table>
       </div>`;
     bindContractActions(current);
   }
@@ -889,12 +949,45 @@
       withSubmit(btn, async () => {
         const out = await api('createContract', payload);
         selectedContract = out.contract.contractNo;
-        showStatus('非正式台账已写入 ' + out.contract.contractNo + '。未生成对客正式合同。', 'ok');
+        showStatus('非正式台账已写入 ' + out.contract.contractNo + '。未生成对客正式合同。这不是订单。', 'ok');
         await render();
       });
     });
     viewEl.querySelectorAll('[data-open]').forEach((a) => a.addEventListener('click', (e) => {
       e.preventDefault(); selectedContract = a.getAttribute('data-open'); render();
+    }));
+    const invForm = document.getElementById('inv-form');
+    if (invForm) invForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = invForm.querySelector('button[type="submit"]');
+      if (!invForm.dataset.req) invForm.dataset.req = newRequestId('INV');
+      const fd = new FormData(invForm);
+      withSubmit(btn, async () => {
+        const out = await api('createInvoiceDraft', {
+          contractNo: fd.get('contractNo'),
+          lineId: fd.get('lineId') || '',
+          fileId: fd.get('fileId') || '',
+          clientRequestId: invForm.dataset.req,
+          __timeoutMs: 20000
+        });
+        const inv = out.invoice;
+        if (!inv || inv.official === true || inv.status !== '模拟/草稿 非正式凭证' || !inv.csv || inv.csv.indexOf('模拟/草稿 非正式凭证') < 0) {
+          showStatus('草稿结果不合格，未收下。', 'danger');
+          return;
+        }
+        showStatus((out.idempotentReplay ? '同一来源未重复新增。' : '已生成发票草稿 ') + inv.invoiceNo + '。模拟/草稿 非正式凭证。', 'ok');
+        invForm.dataset.req = '';
+        await render();
+      });
+    });
+    viewEl.querySelectorAll('[data-csv]').forEach((btn) => btn.addEventListener('click', () => {
+      const pack = invoiceCsvByNo[btn.getAttribute('data-csv')];
+      if (!pack || pack.csv.indexOf('模拟/草稿 非正式凭证') < 0) {
+        showStatus('没有可下载的草稿，或文件缺少非正式标记。', 'danger');
+        return;
+      }
+      downloadText(pack.filename, pack.csv);
+      showStatus('已下载发票草稿 CSV。模拟/草稿 非正式凭证。', 'ok');
     }));
     if (!current) return;
     const uploadOrId = () => new Promise((resolve) => {
