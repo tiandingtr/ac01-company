@@ -29,6 +29,7 @@
     </div>
     <button class="btn amber full" type="submit" id="go">登录</button>
     <p class="hint">本入口只连接本项目独立接口。请勿在页面或聊天中保存口令。</p>
+    <p class="hint"><a href="../index.html">返回公司网站</a></p>
   </form>
 </div>
 <script src="js/config.js"></script>
@@ -44,14 +45,25 @@
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     errBox.classList.remove('show');
+    const btn = document.getElementById('go');
+    if (btn.dataset.busy === '1') return;
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const prev = btn.textContent;
+    btn.textContent = '正在登录…';
     const jobId = document.getElementById('jobId').value.trim();
     const password = document.getElementById('password').value;
     try {
-      await FS.api('login', { jobId, password });
+      await FS.api('login', { jobId, password, __timeoutMs: 20000 });
       location.replace((FS.adminBase ? FS.adminBase() : '.') + '/');
     } catch (err) {
       errBox.textContent = err.message || '登录失败，已拒绝。';
       errBox.classList.add('show');
+      btn.dataset.busy = '0';
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.textContent = prev;
     }
   });
 })();

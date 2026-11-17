@@ -1,0 +1,18 @@
+{
+  "revision": "gas/release",
+  "baseline": "gas/baseline",
+  "transport": "POST JSON { action, payload, token }. Response { ok, data } or { ok:false, error, code }. Do not connect this contract to a live spreadsheet from tests.",
+  "monthKey": "YYYY-MM. Inputs 2026-11 and 2026-11-01 canonicalize to 2026-11. Sheet cells are written with a leading apostrophe so they stay text.",
+  "auth": "Missing auth sheet, empty users, bad password, disabled user, or missing token all fail closed.",
+  "roles": "顾问 may write. 客户 may read and submit plan feedback and privacy acknowledgement. Other roles cannot write.",
+  "cash": {
+    "amount": "Positive magnitude. Zero, negative, and non-numeric rejected with CASH_AMOUNT. Direction is 收入 or 支出.",
+    "lineLimit": 2000,
+    "monthLimit": 20000,
+    "boundary": "2000.00 and month total 20000.00 are accepted. 2000.01 and 20000.01 are rejected with CASH_LIMIT and recorded under rejectedCash, not in cashItems.",
+    "idempotency": "payload.clientRequestId replays the original cash item or the original rejection."
+  },
+  "formalBooks": "postFourStatements returns OPENING_UNCONFIRMED unless config.openingConfirmed is explicitly true (sheet column 期初已确认). Completion, bank balance, and no unfinished lines are also required. previewFourStatements does not persist.",
+  "officialContract": "generateOfficialContract stays closed with GENERATION_CLOSED.",
+  "reads": ["me", "getDashboard", "getPlans", "getProposals", "getDocuments", "getMonth", "getContracts", "getLogs"]
+}

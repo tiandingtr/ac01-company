@@ -58,8 +58,54 @@
     if (action === 'logout') setToken('');
   }
 
+  function splitMeta(payload) {
+    const src = Object.assign({}, payload || {});
+    const timeoutMs = Number(src.__timeoutMs) > 0 ? Number(src.__timeoutMs) : 20000;
+    delete src.__timeoutMs;
+    return { payload: src, timeoutMs: timeoutMs };
+  }
+
+  function timeoutError() {
+    const err = new Error('请求超时，尚未确认是否已保存。请使用同一请求号重试；已保存的登记不会重复入账。');
+    err.code = 'TIMEOUT';
+    err.retryable = true;
+    return err;
+  }
+
+  async function fetchWithTimeout(url, options, timeoutMs) {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, timeoutMs);
+    try {
+      const opts = Object.assign({}, options);
+      if (ctrl) opts.signal = ctrl.signal;
+      return await fetch(url, opts);
+    } catch (e) {
+      if (e && (e.name === 'AbortError' || /aborted/i.test(String(e.message || '')))) throw timeoutError();
+      const err = new Error('网络请求失败，尚未确认是否已保存。可使用同一请求号重试。');
+      err.code = 'NETWORK';
+      err.retryable = true;
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function readBody(res) {
+    let parsed = null;
+    try { parsed = await res.json(); } catch (e) { parsed = null; }
+    if (!parsed || typeof parsed !== 'object') {
+      const err = new Error('接口没有返回可识别的结果（' + (res && res.status) + '）。请稍后用同一请求号重试。');
+      err.code = 'BAD_RESPONSE';
+      err.status = res && res.status;
+      err.retryable = true;
+      throw err;
+    }
+    return parsed;
+  }
+
   async function apiRemote(base, action, payload, file) {
-    const body = { action: action, payload: Object.assign({}, payload || {}), token: getToken() };
+    const meta = splitMeta(payload);
+    const body = { action: action, payload: meta.payload, token: getToken() };
     if (file && file.size) {
       body.payload.file = {
         name: file.name || 'file',
@@ -67,39 +113,38 @@
         data: await fileToBase64(file),
       };
     }
-    const res = await fetch(base, {
+    const res = await fetchWithTimeout(base, {
       method: 'POST',
       redirect: 'follow',
       credentials: 'omit',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body),
-    });
-    let parsed = null;
-    try { parsed = await res.json(); } catch (e) { /* ignore */ }
+    }, meta.timeoutMs);
+    const parsed = await readBody(res);
     throwIfFailed(res, parsed);
     rememberToken(action, parsed.data);
     return parsed.data;
   }
 
   async function apiLocal(action, payload, file) {
+    const meta = splitMeta(payload);
     let res;
     if (file && file.size) {
       const fd = new FormData();
       fd.append('action', action);
-      fd.append('payload', JSON.stringify(payload || {}));
+      fd.append('payload', JSON.stringify(meta.payload));
       fd.append('token', getToken());
       fd.append('file', file);
-      res = await fetch('/api', { method: 'POST', body: fd, credentials: 'same-origin' });
+      res = await fetchWithTimeout('/api', { method: 'POST', body: fd, credentials: 'same-origin' }, meta.timeoutMs);
     } else {
-      res = await fetch('/api', {
+      res = await fetchWithTimeout('/api', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: action, payload: payload || {}, token: getToken() }),
-      });
+        body: JSON.stringify({ action: action, payload: meta.payload, token: getToken() }),
+      }, meta.timeoutMs);
     }
-    let body = null;
-    try { body = await res.json(); } catch (e) { /* ignore */ }
+    const body = await readBody(res);
     throwIfFailed(res, body);
     rememberToken(action, body.data);
     return body.data;

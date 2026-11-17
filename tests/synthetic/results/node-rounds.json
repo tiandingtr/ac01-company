@@ -1,0 +1,599 @@
+{
+  "version": "gas/release + admin frontend rules",
+  "environment": "synthetic-memory",
+  "backend": "gas/release/Code.js",
+  "passed": 40,
+  "failed": 0,
+  "results": [
+    {
+      "round": "R1",
+      "id": "SYN-R1-AUTH-OK",
+      "input": {
+        "jobId": "AC01-SYN-ADVISOR"
+      },
+      "expected": "顾问会话",
+      "actual": "顾问",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-OPENING-FLAG",
+      "input": {},
+      "expected": "default false",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-NO-TOKEN",
+      "input": {
+        "action": "getPlans"
+      },
+      "expected": "UNAUTHENTICATED",
+      "actual": "UNAUTHENTICATED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-BAD-PASSWORD",
+      "input": {
+        "password": "wrong"
+      },
+      "expected": "拒绝",
+      "actual": "工号或口令不正确，已拒绝。",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-DISABLED",
+      "input": {
+        "jobId": "AC01-SYN-DISABLED"
+      },
+      "expected": "拒绝",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-EMPTY-AUTH",
+      "input": {
+        "users": []
+      },
+      "expected": "AUTH_STORE_MISSING",
+      "actual": "AUTH_STORE_MISSING",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-MONTH-CANON",
+      "input": {
+        "value": "2026-11-01"
+      },
+      "expected": "2026-11",
+      "actual": "2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-SHEET-TEXT",
+      "input": {
+        "month": "2026-11"
+      },
+      "expected": "'2026-11",
+      "actual": "'2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-DATE-COERCION",
+      "input": {
+        "date": "2026-11-01+08"
+      },
+      "expected": "2026-11",
+      "actual": "2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-DASH-CANON",
+      "input": {
+        "seeded": "2026-11-01"
+      },
+      "expected": "listed on current month",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-PLAN-MONTH",
+      "input": {
+        "yearMonth": "2026-11-01"
+      },
+      "expected": "2026-11",
+      "actual": "2026-11",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-PLAN-IDEMPOTENT",
+      "input": {
+        "clientRequestId": "PL-REQ-1"
+      },
+      "expected": "same id",
+      "actual": "PL-MWKYL9RLO9ENL1",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-PLAN-READ",
+      "input": {
+        "title": "SYN_PLAN"
+      },
+      "expected": "present once",
+      "actual": 1,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-MONTH-SPAN",
+      "input": {
+        "from": "2025-08",
+        "to": "2026-11"
+      },
+      "expected": "read-after-write each month",
+      "actual": [],
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-CASH-ALIAS",
+      "input": {
+        "stored": "2026-11-01",
+        "query": "2026-11"
+      },
+      "expected": "CA-ALIAS listed under 2026-11",
+      "actual": {
+        "hit": true,
+        "key": "2026-11"
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-CASH-PARITY",
+      "input": {
+        "amount": 100,
+        "month": "2026-11"
+      },
+      "expected": "listed and audited",
+      "actual": {
+        "listed": true,
+        "logHit": true,
+        "id": "CA-MWKYL9RTD4ZB0X"
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-CASH-IDEMPOTENT",
+      "input": {
+        "clientRequestId": "CASH-100"
+      },
+      "expected": "one row",
+      "actual": {
+        "replay": true,
+        "cashCount": 1
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R2",
+      "id": "SYN-R2-CASH-2000",
+      "input": {
+        "amount": 2000
+      },
+      "expected": "accepted",
+      "actual": 2000,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-RELATED-ECHO",
+      "input": {
+        "relatedId": "SYN-REL-1"
+      },
+      "expected": "echoed",
+      "actual": "SYN-REL-1",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-RELATED-LIST",
+      "input": {
+        "relatedId": "SYN-REL-1"
+      },
+      "expected": "visible on file",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-PROPOSAL-FILE",
+      "input": {
+        "title": "SYN_PROPOSAL"
+      },
+      "expected": "计划与策划书",
+      "actual": "计划与策划书",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONTRACT-LEDGER",
+      "input": {
+        "contractNo": "SYN-C-1"
+      },
+      "expected": "草稿",
+      "actual": "草稿",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-OFFICIAL-LOCKED",
+      "input": {
+        "action": "generateOfficialContract"
+      },
+      "expected": "GENERATION_CLOSED",
+      "actual": "GENERATION_CLOSED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONTRACT-DASH",
+      "input": {
+        "contractNo": "SYN-C-1"
+      },
+      "expected": "on dashboard",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-LEDGER",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "balanced draft",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONFIRM-UNFINISHED",
+      "input": {
+        "lineId": "JL-MWKYL9RWAU1825"
+      },
+      "expected": "rejected",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-WAIVE",
+      "input": {
+        "lineId": "JL-MWKYL9RWAU1825"
+      },
+      "expected": "免原件",
+      "actual": "免原件",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-CONFIRM",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "confirmed",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R3",
+      "id": "SYN-R3-PREVIEW-NOT-POSTED",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "not persisted",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-POST-LOCKED",
+      "input": {
+        "openingConfirmed": false
+      },
+      "expected": "OPENING_UNCONFIRMED",
+      "actual": "OPENING_UNCONFIRMED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-POST-NOT-WRITTEN",
+      "input": {
+        "month": "2025-07"
+      },
+      "expected": "posted false",
+      "actual": false,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-POST-WHEN-FLAG",
+      "input": {
+        "openingConfirmed": true,
+        "label": "synthetic gate proof only"
+      },
+      "expected": "posted",
+      "actual": true,
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CASH-2000-01",
+      "input": {
+        "amount": 2000.01
+      },
+      "expected": "CASH_LIMIT and not listed",
+      "actual": {
+        "code": "CASH_LIMIT",
+        "listed": false,
+        "rejected": 1
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CASH-NONPOSITIVE",
+      "input": {
+        "amounts": [
+          0,
+          -1
+        ]
+      },
+      "expected": "CASH_AMOUNT",
+      "actual": [
+        "CASH_AMOUNT",
+        "CASH_AMOUNT"
+      ],
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CLIENT-CASH",
+      "input": {
+        "role": "客户"
+      },
+      "expected": "FORBIDDEN",
+      "actual": "FORBIDDEN",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CLIENT-PLAN",
+      "input": {
+        "role": "客户"
+      },
+      "expected": "FORBIDDEN",
+      "actual": "FORBIDDEN",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-CLIENT-FEEDBACK",
+      "input": {
+        "mode": "feedback"
+      },
+      "expected": "saved",
+      "actual": "SYN_FB",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-DATE-MONTH",
+      "input": {
+        "date": "2026-10-01",
+        "month": "2026-11"
+      },
+      "expected": "MONTH_MISMATCH",
+      "actual": "MONTH_MISMATCH",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-UI-RULES",
+      "input": {
+        "amount": 2000.01,
+        "openingConfirmed": false
+      },
+      "expected": "blocked before request",
+      "actual": {
+        "uiAmount": "CASH_LIMIT",
+        "uiZero": "CASH_AMOUNT",
+        "allowed": false
+      },
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    },
+    {
+      "round": "R4",
+      "id": "SYN-R4-UNBALANCED",
+      "input": {
+        "opening": 0,
+        "line": 5,
+        "closing": 1
+      },
+      "expected": "UNBALANCED",
+      "actual": "UNBALANCED",
+      "version": "gas/release + admin frontend rules",
+      "environment": "synthetic-memory",
+      "backend": "gas/release/Code.js",
+      "status": "pass",
+      "note": ""
+    }
+  ]
+}
