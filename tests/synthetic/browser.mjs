@@ -55,14 +55,48 @@ const configOnDisk = fs.readFileSync(path.join(root, 'admin/js/config.js'), 'utf
 rec('R1', 'SYN-R1-CONFIG-UNCHANGED', { file: 'admin/js/config.js' }, 'live web app url still in repo file', configOnDisk.indexOf('script.google.com') >= 0, configOnDisk.indexOf('script.google.com') >= 0);
 
 await page.goto(base + '/admin/login.html', { waitUntil: 'networkidle0' });
-const home = await page.$eval('a[href="../index.html"]', (a) => a.textContent);
-rec('R1', 'SYN-R1-LOGIN-HOME', {}, '返回公司网站', home, home.indexOf('公司网站') >= 0);
+const home = await page.$eval('a.login-home', (a) => ({ text: a.textContent.trim(), href: a.getAttribute('href') }));
+const foot = await page.$eval('.login-foot', (el) => el.innerText);
+const hart = await page.evaluate(() => document.body.innerText.toLowerCase().indexOf('harthelm') >= 0);
+const keys = await page.evaluate(async () => {
+  const home = document.querySelector('.login-home');
+  home.focus();
+  const order = [document.activeElement.id || document.activeElement.className];
+  for (let i = 0; i < 3; i++) {
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+  }
+  const tabbed = [];
+  home.focus();
+  const seq = [home];
+  let node = home;
+  for (let i = 0; i < 3; i++) {
+    const all = Array.from(document.querySelectorAll('a, button, input'));
+    const idx = all.indexOf(node);
+    node = all[idx + 1];
+    tabbed.push(node && (node.id || node.className));
+  }
+  return tabbed;
+});
+const desktopOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+rec('R1', 'SYN-R1-LOGIN-HOME', {}, '返回公司主页 -> ../index.html', home, home.text === '返回公司主页' && home.href === '../index.html');
+rec('R1', 'SYN-R1-LOGIN-FOOTER', {}, 'TIANDING name, mailto, copyright', foot, foot.indexOf('香港天鼎國際貿易有限公司') >= 0 && foot.indexOf('HK TIANDING INTERNATIONAL TRADE LIMITED') >= 0 && foot.indexOf('tiandingtr@gmail.com') >= 0 && foot.indexOf('©2026 HK TIANDING INTERNATIONAL TRADE LIMITED. 保留所有權利。') >= 0 && hart === false);
+rec('R1', 'SYN-R1-LOGIN-KEYS', { from: '返回公司主页' }, ['jobId', 'password', 'go'], keys, JSON.stringify(keys) === JSON.stringify(['jobId', 'password', 'go']));
+rec('R1', 'SYN-R1-LOGIN-NO-OVERFLOW', { viewport: '1280' }, true, desktopOverflow, desktopOverflow === true);
 await shot(page, 'r1-login-desktop.png');
+await page.setViewport({ width: 390, height: 844 });
+const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+await shot(page, 'r1-login-mobile.png');
+rec('R1', 'SYN-R1-LOGIN-MOBILE', { viewport: '390' }, 'no overflow', mobileOverflow, mobileOverflow === true);
+await page.setViewport({ width: 1280, height: 800 });
 
+await fetch(base + '/__test/delay', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login: 600 }) });
 await page.type('#jobId', 'AC01-SYN-ADVISOR');
 await page.type('#password', 'wrong-password');
 await page.click('#go');
+await page.waitForFunction(() => document.querySelector('#go').textContent.indexOf('正在登录') >= 0);
+rec('R1', 'SYN-R1-LOGIN-LOADING', {}, '正在登录', '正在登录', true);
 await page.waitForFunction(() => document.querySelector('#err').classList.contains('show'));
+await fetch(base + '/__test/delay', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
 const errText = await page.$eval('#err', (el) => el.textContent);
 rec('R1', 'SYN-R1-UI-BAD-LOGIN', { password: 'wrong-password' }, 'visible rejection', errText, /拒绝|不正确/.test(errText));
 

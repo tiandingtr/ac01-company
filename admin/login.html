@@ -8,17 +8,18 @@
 <link rel="icon" href="../favicon.svg">
 <link rel="stylesheet" href="css/admin.css">
 </head>
-<body>
+<body class="login-body">
 <div class="login-wrap">
-  <div class="preview-banner">
-    <span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span>
-    <span>鉴权失败即拒绝 · 对客正式合同生成已关闭</span>
-  </div>
+  <div class="login-geometry" aria-hidden="true"></div>
+  <header class="login-top">
+    <img src="../assets/logo-horizontal-white.svg" alt="香港天鼎國際貿易有限公司">
+    <a class="login-home" href="../index.html">返回公司主页</a>
+  </header>
   <form class="login-card" id="login-form" autocomplete="username">
-    <img src="../assets/logo-horizontal.svg" alt="香港天鼎國際貿易有限公司" style="height:28px">
+    <p class="login-kicker">HK TIANDING INTERNATIONAL TRADE LIMITED</p>
     <h1>一体化公司管理后台</h1>
     <p class="lead">授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。</p>
-    <div class="err" id="err"></div>
+    <div class="err" id="err" role="alert" aria-live="assertive"></div>
     <div class="field">
       <label for="jobId">工号</label>
       <input id="jobId" name="jobId" required autofocus>
@@ -29,8 +30,13 @@
     </div>
     <button class="btn amber full" type="submit" id="go">登录</button>
     <p class="hint">本入口只连接本项目独立接口。请勿在页面或聊天中保存口令。</p>
-    <p class="hint"><a href="../index.html">返回公司网站</a></p>
   </form>
+  <footer class="login-foot">
+    <p>香港天鼎國際貿易有限公司</p>
+    <p>HK TIANDING INTERNATIONAL TRADE LIMITED</p>
+    <p><a href="mailto:tiandingtr@gmail.com">tiandingtr@gmail.com</a></p>
+    <p>©2026 HK TIANDING INTERNATIONAL TRADE LIMITED. 保留所有權利。</p>
+  </footer>
 </div>
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>

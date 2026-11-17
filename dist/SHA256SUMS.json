@@ -113,13 +113,13 @@
     },
     {
       "path": "dist/ac01-pages/admin/login.html",
-      "sha256": "a4bc7ad91c67ba36bb8d76c95eb9742371a8525fae06dc7b1777e0d67aa60e44",
-      "bytes": 2848
+      "sha256": "76b52aa897db8920abb46e055784eb9b4e0b0747e9ad87015dcebacbc14a668e",
+      "bytes": 3151
     },
     {
       "path": "dist/ac01-pages/admin/css/admin.css",
-      "sha256": "f2888ee616302255ce702d79193fe0b2acbdf8651d0f992076a404fdbba69353",
-      "bytes": 8400
+      "sha256": "9aababb8f7f63c66e1163eca5ead7f753621e3ad5abc7f871c97cf65b2466022",
+      "bytes": 10302
     },
     {
       "path": "dist/ac01-pages/admin/js/api.js",

@@ -1,7 +1,7 @@
 {
   "version": "gas/release + admin ui",
   "environment": "synthetic-browser http://127.0.0.1:8765",
-  "passed": 16,
+  "passed": 21,
   "failed": 0,
   "results": [
     {
@@ -54,8 +54,80 @@
       "round": "R1",
       "id": "SYN-R1-LOGIN-HOME",
       "input": {},
-      "expected": "返回公司网站",
-      "actual": "返回公司网站",
+      "expected": "返回公司主页 -> ../index.html",
+      "actual": {
+        "text": "返回公司主页",
+        "href": "../index.html"
+      },
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-LOGIN-FOOTER",
+      "input": {},
+      "expected": "TIANDING name, mailto, copyright",
+      "actual": "香港天鼎國際貿易有限公司\n\nHK TIANDING INTERNATIONAL TRADE LIMITED\n\ntiandingtr@gmail.com\n\n©2026 HK TIANDING INTERNATIONAL TRADE LIMITED. 保留所有權利。",
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-LOGIN-KEYS",
+      "input": {
+        "from": "返回公司主页"
+      },
+      "expected": [
+        "jobId",
+        "password",
+        "go"
+      ],
+      "actual": [
+        "jobId",
+        "password",
+        "go"
+      ],
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-LOGIN-NO-OVERFLOW",
+      "input": {
+        "viewport": "1280"
+      },
+      "expected": true,
+      "actual": true,
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-LOGIN-MOBILE",
+      "input": {
+        "viewport": "390"
+      },
+      "expected": "no overflow",
+      "actual": true,
+      "version": "gas/release + admin ui",
+      "environment": "synthetic-browser",
+      "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
+      "status": "pass"
+    },
+    {
+      "round": "R1",
+      "id": "SYN-R1-LOGIN-LOADING",
+      "input": {},
+      "expected": "正在登录",
+      "actual": "正在登录",
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
       "backend": "gas/release/Code.js via tests/synthetic/server.mjs",
@@ -170,7 +242,7 @@
       "expected": "one row and success",
       "actual": {
         "planRows": 1,
-        "busyText": "计划已保存 PL-MWKYYLGDO14QM3 · 2026-11"
+        "busyText": "计划已保存 PL-MWKZ8UNTMC3EMM · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
@@ -215,7 +287,7 @@
       "actual": {
         "postDisabled": true,
         "exportDisabled": true,
-        "postStatus": "计划已保存 PL-MWKYYLGDO14QM3 · 2026-11"
+        "postStatus": "计划已保存 PL-MWKZ8UNTMC3EMM · 2026-11"
       },
       "version": "gas/release + admin ui",
       "environment": "synthetic-browser",
