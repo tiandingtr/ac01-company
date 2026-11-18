@@ -549,32 +549,41 @@ function log_(actor, action, target, result, notes) {
   return { saved: true };
 }
 
+function refusalText_(state, reason) {
+  var why = reason ? ('原因：' + reason) : '';
+  if (state === '服务已接受且成功记录') return '服务已观察到拒绝记录的写入返回。业务未入账。调用方若没有收到此响应，应只读核对，不要再写。' + why;
+  if (state === '无法证明是否收到') return '无法证明拒绝记录是否已经写入。这不是业务入账，也不是已证明的失败。请不要再写，先只读核对。' + why;
+  if (state === '拒绝已留痕') return '同一请求号的拒绝记录已在，未再次写入，也未入账。请不要再写。' + why;
+  if (state === '审计失败未闭环') return '本次没有把拒绝记录提交到可核对的持久位置。请不要再写。只读核对若仍没有记录，结果是未确认待查，不是已入账。' + why;
+  return '结果未确认待查。请不要再写，先只读核对。' + why;
+}
+
 function refusalBody_(err) {
   err = err || {};
-  var audited = !!(err.audit || (err.auditStatus && err.auditStatus.attempted));
-  var business = err.businessStatus || { outcome: audited ? '拒绝' : '未完成', written: false };
-  var audit = err.auditStatus || { attempted: false, saved: false, error: '' };
-  var rejectionData = err.rejectionDataStatus || { attempted: false, saved: false, error: '' };
-  var error = String(err.message || err);
-  if (audited && business.outcome === '拒绝') {
-    error = '业务已拒绝，未入账。原因：' + String(err.message || '');
-    if (rejectionData.attempted) error += rejectionData.saved ? '被拒记录已写入。' : '被拒记录未能写入。';
-    if (audit.attempted) error += audit.saved ? '审计日志已写入。' : '审计日志未能写入，不能当作已留下可核对记录。';
-  }
+  var business = err.businessStatus || { outcome: '未完成', written: null };
+  var audit = err.auditStatus || { attempted: false, saved: false, error: '', owner: '', ambiguous: false };
+  var rejectionData = err.rejectionDataStatus || { attempted: false, saved: false, error: '', ambiguous: false };
+  var recordState = err.recordState || '';
+  var error = recordState ? refusalText_(recordState, String(err.message || '')) : String(err.message || err);
   return {
     ok: false,
     error: error,
     code: err.code || '',
     status: err.status || 400,
+    recordState: recordState,
+    mayReplay: false,
     business: { outcome: business.outcome, written: business.outcome === '拒绝' ? false : null },
     audit: {
       attempted: !!audit.attempted,
       saved: !!audit.saved,
+      owner: audit.owner || '',
+      ambiguous: !!audit.ambiguous,
       error: audit.saved ? '' : (audit.error || '')
     },
     rejectionData: {
       attempted: !!rejectionData.attempted,
       saved: !!rejectionData.saved,
+      ambiguous: !!rejectionData.ambiguous,
       error: rejectionData.saved ? '' : (rejectionData.error || '')
     }
   };
@@ -1478,15 +1487,65 @@ function upsertPlanRow_(p) {
   else appendRow_('02_经营计划与法定提醒', rec);
 }
 
-function persist_(store, dirty) {
+function cloneJson_(value) {
+  return JSON.parse(JSON.stringify(value == null ? null : value));
+}
+
+function commitRejectedMonth_(store, yearMonth) {
   if (testStore_()) {
-    if (testStore_().__failRejectionPersist) {
-      var persistErr = new Error('模拟被拒底稿写入失败');
-      persistErr.code = 'REJECTION_DATA_FAILED';
-      throw persistErr;
+    store.__persistCalls = (store.__persistCalls || 0) + 1;
+    var phase = store.__sheetPhase || (store.__failRejectionPersist ? 'before' : '');
+    var mirror = store.__sheetMirror || (store.__sheetMirror = { months: {} });
+    if (phase === 'before' || phase === 'lock-timeout') {
+      var early = new Error(phase === 'lock-timeout' ? '未取得独占，本次未提交拒绝记录' : '拒绝记录在提交前失败');
+      early.code = phase === 'lock-timeout' ? 'LOCK_NOT_HELD' : 'SHEET_WRITE_FAILED';
+      early.sheetPhase = phase;
+      early.ambiguous = false;
+      throw early;
     }
-    return;
+    if (phase === 'partial') {
+      var partial = cloneJson_(store.months || {});
+      Object.keys(partial || {}).forEach(function (key) {
+        if (partial[key]) partial[key].rejectedCash = [];
+      });
+      mirror.months = partial;
+      var partErr = new Error('拒绝记录写入结果不完整');
+      partErr.code = 'SHEET_WRITE_AMBIGUOUS';
+      partErr.sheetPhase = 'partial';
+      partErr.ambiguous = true;
+      throw partErr;
+    }
+    mirror.months = cloneJson_(store.months || {});
+    if (phase === 'after' || phase === 'ambiguous') {
+      var late = new Error('拒绝记录写入返回前中断');
+      late.code = 'SHEET_WRITE_AMBIGUOUS';
+      late.sheetPhase = phase;
+      late.ambiguous = true;
+      throw late;
+    }
+    return { observed: true };
   }
+  var month = ensureMonth_(store, yearMonth);
+  ensureMonthSheet_();
+  var table = readTable_(MONTH_SHEET);
+  var found = null;
+  table.rows.forEach(function (row) {
+    if (canonYearMonth_(row['年月']) === canonYearMonth_(yearMonth)) found = row;
+  });
+  var rec = monthRecord_(month);
+  try {
+    if (found) updateRow_(MONTH_SHEET, found._row, rec);
+    else appendRow_(MONTH_SHEET, rec);
+  } catch (sheetErr) {
+    sheetErr.ambiguous = true;
+    sheetErr.sheetPhase = 'ambiguous';
+    throw sheetErr;
+  }
+  return { observed: true };
+}
+
+function persist_(store, dirty) {
+  if (testStore_()) return;
   dirty = dirty || {};
   if (dirty.yearMonth) dirty.yearMonth = canonYearMonth_(dirty.yearMonth) || dirty.yearMonth;
   ensureKnownHeaders_();
@@ -1662,6 +1721,17 @@ function findCashByRequest_(store, reqId) {
   return found;
 }
 
+function findRejectedByRequest_(store, reqId) {
+  if (!reqId) return null;
+  var found = null;
+  Object.keys(store.months || {}).forEach(function (raw) {
+    ((store.months[raw] && store.months[raw].rejectedCash) || []).forEach(function (item) {
+      if (item && item.clientRequestId === reqId) found = item;
+    });
+  });
+  return found;
+}
+
 function addCashItem_(store, yearMonth, payload) {
   var key = canonYearMonth_(yearMonth);
   if (!key) fail_('年月须为 YYYY-MM，例如 2026-11。', 'BAD_MONTH', 400);
@@ -1674,6 +1744,21 @@ function addCashItem_(store, yearMonth, payload) {
   if (replay) {
     replay.item.idempotentReplay = true;
     return replay.item;
+  }
+  var priorRejection = findRejectedByRequest_(store, payload.clientRequestId);
+  if (priorRejection) {
+    var replayRejection = new Error('同一请求号的拒绝记录已在');
+    replayRejection.code = 'CASH_LIMIT';
+    replayRejection.recordState = '拒绝已留痕';
+    replayRejection.stored = {
+      amount: priorRejection.amount,
+      clientRequestId: priorRejection.clientRequestId,
+      reason: priorRejection.reason || ''
+    };
+    replayRejection.businessStatus = { outcome: '拒绝', written: false };
+    replayRejection.auditStatus = { attempted: false, saved: true, owner: 'rejectedCash', ambiguous: false, error: '' };
+    replayRejection.rejectionDataStatus = { attempted: false, saved: true, ambiguous: false, error: '' };
+    throw replayRejection;
   }
   var month = ensureMonth_(store, key);
   if (month.posted || month.completionConfirmed) {
@@ -3274,34 +3359,46 @@ function dispatch_(action, payload, token, uploaded) {
   try {
     result = applyAction_(store, action, payload || {}, user, uploaded);
   } catch (err) {
-    err.rejectionDataStatus = { attempted: false, saved: false, error: '' };
-    if (err && err.dirty) {
+    if (err && err.recordState) throw err;
+    err.rejectionDataStatus = { attempted: false, saved: false, error: '', ambiguous: false };
+    err.auditStatus = { attempted: false, saved: false, error: '', owner: '', ambiguous: false };
+    err.businessStatus = { outcome: '未完成', written: null };
+    err.recordState = '未确认待查';
+    if (err && err.dirty && err.dirty.month) {
+      err.businessStatus = { outcome: '拒绝', written: false };
+      err.auditStatus.attempted = true;
+      err.auditStatus.owner = 'rejectedCash';
       err.rejectionDataStatus.attempted = true;
       try {
-        persist_(store, err.dirty);
+        commitRejectedMonth_(store, err.dirty.yearMonth);
         err.rejectionDataStatus.saved = true;
-      } catch (persistErr) {
-        err.rejectionDataStatus.saved = false;
-        err.rejectionDataStatus.error = String(persistErr && persistErr.message || persistErr);
-      }
-    }
-    err.auditStatus = { attempted: false, saved: false, error: '' };
-    if (err && err.audit) {
-      err.auditStatus.attempted = true;
-      err.businessStatus = { outcome: '拒绝', written: false };
-      var auditNote = err.audit.notes || String(err.message || '');
-      if (err.rejectionDataStatus.attempted && !err.rejectionDataStatus.saved) {
-        auditNote += ' 被拒底稿未能落库。';
-      }
-      try {
-        log_(user.jobId, err.audit.action, err.audit.target, '拒绝', auditNote);
         err.auditStatus.saved = true;
-      } catch (auditErr) {
+        err.recordState = '服务已接受且成功记录';
+      } catch (persistErr) {
+        var knownMiss = persistErr && (persistErr.sheetPhase === 'before' || persistErr.sheetPhase === 'lock-timeout');
+        err.rejectionDataStatus.saved = false;
+        err.rejectionDataStatus.ambiguous = !knownMiss;
+        err.rejectionDataStatus.error = String(persistErr && persistErr.message || persistErr);
         err.auditStatus.saved = false;
-        err.auditStatus.error = String(auditErr && auditErr.message || auditErr);
+        err.auditStatus.ambiguous = !knownMiss;
+        err.auditStatus.error = err.rejectionDataStatus.error;
+        err.recordState = knownMiss ? '审计失败未闭环' : '无法证明是否收到';
       }
-    } else {
-      err.businessStatus = { outcome: '未完成', written: false };
+    } else if (err && err.audit) {
+      err.businessStatus = { outcome: '拒绝', written: false };
+      err.auditStatus.attempted = true;
+      err.auditStatus.owner = 'operationLog';
+      try {
+        log_(user.jobId, err.audit.action, err.audit.target, '拒绝', err.audit.notes || String(err.message || ''));
+        err.auditStatus.saved = true;
+        err.recordState = '服务已接受且成功记录';
+      } catch (auditErr) {
+        var knownLogMiss = auditErr && auditErr.code === 'AUDIT_WRITE_FAILED';
+        err.auditStatus.saved = false;
+        err.auditStatus.ambiguous = !knownLogMiss;
+        err.auditStatus.error = String(auditErr && auditErr.message || auditErr);
+        err.recordState = knownLogMiss ? '审计失败未闭环' : '无法证明是否收到';
+      }
     }
     throw err;
   }

@@ -57,7 +57,7 @@ const monthItems = (monthView.data.month && monthView.data.month.cashItems) || [
 check('cash-month-001-rejected', monthOver.ok === false && monthOver.code === 'CASH_LIMIT', monthOver);
 check('cash-month-001-not-listed', monthItems.every((item) => item.clientRequestId !== 'CASH-MONTH-001') && monthItems.length === 10, monthItems.length);
 check('cash-month-001-rejected-row', (monthView.data.rejectedCash || []).some((r) => r.clientRequestId === 'CASH-MONTH-001' && Number(r.amount) === 0.01), monthView.data.rejectedCash);
-check('cash-month-001-log-is-reject', monthRejects.length === 1 && monthRejects[0].result === '拒绝' && monthRejects[0].action === '登记现金或第三方收支', monthRejects);
+check('cash-month-001-one-durable-record', monthOver.ok === false && monthOver.recordState === '服务已接受且成功记录' && monthOver.mayReplay === false && monthOver.audit && monthOver.audit.owner === 'rejectedCash' && monthOver.audit.saved === true && monthOver.business.written === false && String(monthOver.error).indexOf('成功') < 0, monthOver);
 
 const unbalanced = call(engine, advisor.token, 'addStatement', {
   yearMonth: '2026-05', accountName: 'SYN-BANK', accountId: 'SYN-BANK-PATCH', opening: 0, closing: 1, currency: 'HKD',
@@ -118,21 +118,18 @@ check('unconfirmed-does-not-authorize-write', uncertainSaved.mayWrite === false 
 check('unconfirmed-copy-does-not-ask-retry', copy.message.indexOf('重试') < 0 && copy.message.indexOf('同一请求号') < 0 && reviewMiss.message.indexOf('重试') < 0 && copy.message.indexOf('不是写入失败') >= 0, copy.message);
 
 store.__failAuditWrite = true;
-const auditFail = call(engine, advisor.token, 'addCashItem', {
-  yearMonth: '2026-04', date: '2026-04-02', desc: 'SYN_AUDIT_FAIL', direction: '收入', amount: 2000.01, currency: 'HKD', clientRequestId: 'CASH-AUDIT-FAIL'
-});
+const auditFail = call(engine, advisor.token, 'generateLedger', { yearMonth: '2026-05' });
 delete store.__failAuditWrite;
-const auditLogs = (store.logs || []).filter((l) => String(l.notes || '').indexOf('CASH-AUDIT-FAIL') >= 0 || String(l.notes || '').indexOf('2000.01') >= 0 && String(l.target || '').indexOf('2026-04') >= 0);
-check('audit-failure-not-claimed-saved', auditFail.ok === false && auditFail.code === 'CASH_LIMIT' && auditFail.business && auditFail.business.outcome === '拒绝' && auditFail.business.written === false && auditFail.audit && auditFail.audit.attempted === true && auditFail.audit.saved === false && auditFail.rejectionData && auditFail.rejectionData.saved === true && String(auditFail.error).indexOf('审计日志未能写入') >= 0 && String(auditFail.error).indexOf('审计日志已写入') < 0 && String(auditFail.error).indexOf('成功') < 0 && auditLogs.length === 0, auditFail);
+check('audit-failure-not-claimed-saved', auditFail.ok === false && auditFail.code === 'UNBALANCED' && auditFail.recordState === '审计失败未闭环' && auditFail.mayReplay === false && auditFail.audit && auditFail.audit.owner === 'operationLog' && auditFail.audit.saved === false && String(auditFail.error).indexOf('成功') < 0, auditFail);
 
 store.__failRejectionPersist = true;
+const callsBefore = store.__persistCalls || 0;
 const dataFail = call(engine, advisor.token, 'addCashItem', {
   yearMonth: '2026-03', date: '2026-03-02', desc: 'SYN_DATA_FAIL', direction: '收入', amount: 2000.01, currency: 'HKD', clientRequestId: 'CASH-DATA-FAIL'
 });
 delete store.__failRejectionPersist;
-check('rejection-data-failure-is-separate', dataFail.ok === false && dataFail.business.written === false && dataFail.rejectionData.attempted === true && dataFail.rejectionData.saved === false && dataFail.audit.saved === true && String(dataFail.error).indexOf('被拒记录未能写入') >= 0 && String(dataFail.error).indexOf('成功') < 0, dataFail);
-const dataLog = (store.logs || []).filter((l) => String(l.notes || '').indexOf('被拒底稿未能落库') >= 0 && l.result === '拒绝');
-check('rejection-data-failure-audit-says-not-saved', dataLog.length === 1 && dataLog[0].result !== '成功', dataLog);
+check('rejection-data-failure-is-separate', dataFail.ok === false && dataFail.recordState === '审计失败未闭环' && dataFail.mayReplay === false && dataFail.business.written === false && dataFail.rejectionData.attempted === true && dataFail.rejectionData.saved === false && dataFail.audit.saved === false && dataFail.audit.ambiguous === false && (store.__persistCalls || 0) === callsBefore + 1 && String(dataFail.error).indexOf('成功') < 0, dataFail);
+check('rejection-data-failure-does-not-write-followup-log', (store.logs || []).every((l) => String(l.notes || '').indexOf('被拒底稿未能落库') < 0), store.logs);
 
 store.__failBusinessWrite = true;
 const boom = call(engine, advisor.token, 'addCashItem', {
@@ -146,11 +143,13 @@ function fileSha(rel) {
   return crypto.createHash('sha256').update(fs.readFileSync(path.join(root, rel))).digest('hex');
 }
 const pairs = [
-  ['gas/release/Code.js', 'dist/ac01-gas/Code.js'],
   ['admin/js/api.js', 'dist/ac01-pages/admin/js/api.js'],
   ['admin/js/app.js', 'dist/ac01-pages/admin/js/app.js'],
   ['admin/js/rules.js', 'dist/ac01-pages/admin/js/rules.js']
 ];
+const sourceCode = fileSha('gas/release/Code.js');
+const packedCode = fileSha('dist/ac01-gas/Code.js');
+check('dist-gas-left-at-previous-snapshot', sourceCode !== packedCode && packedCode === 'a2694ebd35201f60e4857530a5cd50f94a076f0d4879b367ccd1a3b2209f6cfa', { packedChanged: packedCode === sourceCode });
 const sums = JSON.parse(fs.readFileSync(path.join(root, 'dist/SHA256SUMS.json'), 'utf8'));
 pairs.forEach(function (pair) {
   const same = fileSha(pair[0]) === fileSha(pair[1]);
