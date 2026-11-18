@@ -23,6 +23,7 @@ export function call(engine, token, action, payload, uploaded) {
     const data = engine.dispatch_(action, payload || {}, token || '', uploaded || null);
     return { ok: true, data: data };
   } catch (err) {
+    if (engine.refusalBody_) return engine.refusalBody_(err);
     return { ok: false, error: String(err.message || err), code: err.code || '', status: err.status || 400 };
   }
 }

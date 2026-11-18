@@ -44,6 +44,96 @@
     return Rules.canonYearMonth(value);
   }
 
+  let pendingReview = null;
+
+  function unconfirmedWriteError(action, payload) {
+    const copy = Rules.unconfirmedCopy();
+    const err = new Error(copy.message);
+    err.code = copy.code;
+    err.level = 'warn';
+    err.mayWrite = false;
+    err.review = { action: action, payload: payload };
+    return err;
+  }
+
+  function ensureReviewButton() {
+    let btn = document.getElementById('readonly-check');
+    const status = document.getElementById('status');
+    if (!btn && status) {
+      btn = document.createElement('button');
+      btn.id = 'readonly-check';
+      btn.type = 'button';
+      btn.className = 'btn small ghost';
+      btn.textContent = '只读核对';
+      btn.hidden = true;
+      status.insertAdjacentElement('afterend', btn);
+      btn.addEventListener('click', function () { onReadonlyCheck(); });
+    }
+    return btn;
+  }
+
+  function showReviewButton(on) {
+    const btn = ensureReviewButton();
+    if (btn) btn.hidden = !on;
+  }
+
+  async function onReadonlyCheck() {
+    if (!pendingReview) {
+      showReviewButton(false);
+      showStatus('没有待核对的提交。请不要再次提交。', 'warn');
+      return;
+    }
+    let match = null;
+    try { match = await readBackOnce(pendingReview.action, pendingReview.payload); } catch (ignore) { match = null; }
+    const verdict = Rules.reviewCopy(match);
+    if (verdict.state === 'unconfirmed') {
+      showStatus(verdict.message, 'warn');
+      showReviewButton(true);
+      return;
+    }
+    pendingReview = null;
+    showReviewButton(false);
+    showStatus(verdict.message, verdict.state === 'saved' ? 'ok' : 'danger');
+  }
+
+  async function readBackOnce(action, payload) {
+    if (action === 'savePlan') {
+      return Rules.matchSavedWrite('plan', await api('getPlans', { __timeoutMs: 8000 }), payload.clientRequestId);
+    }
+    if (action === 'addCashItem') {
+      return Rules.matchSavedWrite('cash', await api('getMonth', { yearMonth: payload.yearMonth, __timeoutMs: 8000 }), payload.clientRequestId);
+    }
+    if (action === 'createInvoiceDraft') {
+      return Rules.matchSavedWrite('invoice', await api('getContracts', { __timeoutMs: 8000 }), payload.clientRequestId);
+    }
+    return null;
+  }
+
+  async function submitTracked(action, payload, file) {
+    pendingReview = null;
+    showReviewButton(false);
+    try {
+      return await api(action, payload, file);
+    } catch (err) {
+      if (!payload || !payload.clientRequestId || !err || (err.code !== 'TIMEOUT' && err.code !== 'NETWORK' && err.code !== 'BAD_RESPONSE')) throw err;
+      let saved = null;
+      try { saved = await readBackOnce(action, payload); } catch (ignore) { saved = null; }
+      let decided = Rules.afterUncertainWrite(saved);
+      if (decided.next === 'unconfirmed') {
+        await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+        try { saved = await readBackOnce(action, payload); } catch (ignore) { saved = null; }
+        decided = Rules.afterUncertainWrite(saved);
+      }
+      if (decided.next === 'show-rejection') {
+        const rejected = new Error((saved && saved.reason) || '该笔已被拒绝，未入账。请不要再次提交。');
+        rejected.code = (saved && saved.code) || 'CASH_LIMIT';
+        throw rejected;
+      }
+      if (decided.next === 'show-saved') return saved;
+      throw unconfirmedWriteError(action, payload);
+    }
+  }
+
   async function withSubmit(btn, fn) {
     if (!btn || btn.dataset.busy === '1') return null;
     btn.dataset.busy = '1';
@@ -55,14 +145,22 @@
     try {
       return await fn();
     } catch (err) {
-      showStatus(err && err.message ? err.message : '提交失败。', 'danger');
+      const level = err && err.level === 'warn' ? 'warn' : 'danger';
+      if (err && err.code === 'TIMEOUT_UNCONFIRMED' && err.review) {
+        pendingReview = err.review;
+        showReviewButton(true);
+      } else {
+        pendingReview = null;
+        showReviewButton(false);
+      }
+      showStatus(err && err.message ? err.message : '提交没有完成。', level);
       return null;
     } finally {
       if (btn.isConnected) {
         btn.dataset.busy = '0';
-        btn.disabled = false;
         btn.removeAttribute('aria-busy');
         btn.textContent = prev;
+        btn.disabled = !!pendingReview;
       }
     }
   }
@@ -273,8 +371,9 @@
         return;
       }
       withSubmit(btn, async () => {
-        const out = await api('savePlan', payload);
-        showStatus('计划已保存 ' + out.plan.id + ' · ' + out.plan.yearMonth + (out.idempotentReplay ? '（同一请求号，未重复新增）' : ''), 'ok');
+        const out = await submitTracked('savePlan', payload);
+        const note = out.confirmedAfterTimeout ? '（超时后已核对，未再次提交）' : (out.idempotentReplay ? '（同一请求号，未重复新增）' : '');
+        showStatus('计划已保存 ' + out.plan.id + ' · ' + out.plan.yearMonth + note, 'ok');
         form.dataset.req = '';
         form.reset();
         await render();
@@ -552,11 +651,11 @@
             <div class="field"><label for="cash-date">日期</label><input id="cash-date" name="date" required placeholder="2026-11-18" pattern="\\d{4}-\\d{2}-\\d{2}"></div>
             <div class="field"><label for="cash-desc">摘要</label><input id="cash-desc" name="desc" required></div>
             <div class="field"><label for="cash-direction">方向</label><select id="cash-direction" name="direction"><option>收入</option><option>支出</option></select></div>
-            <div class="field"><label for="cash-amount">金额</label><input id="cash-amount" name="amount" type="number" step="0.01" min="0.01" max="2000" required inputmode="decimal" aria-describedby="cash-limit"></div>
+            <div class="field"><label for="cash-amount">金额</label><input id="cash-amount" name="amount" type="number" step="0.01" min="0.01" required inputmode="decimal" aria-describedby="cash-limit"></div>
             <div class="field"><label for="cash-currency">币种</label><input id="cash-currency" name="currency" value="HKD"></div>
             <div class="field"><label for="cash-party">对方</label><input id="cash-party" name="counterparty"></div>
           </div>
-          <p id="cash-limit" class="hint">单笔不超过 2,000 港元，当月合计不超过 20,000 港元。金额须为正数；零和负数会在提交前被拒绝。</p>
+          <p id="cash-limit" class="hint">单笔不超过 2,000 港元，当月合计不超过 20,000 港元。超过上限会交给接口拒绝，不入明细账，并留下拒绝日志。零和负数会在提交前被拒绝。</p>
           <button class="btn small" type="submit">登记</button>
         </form>
         <table style="margin-top:12px"><thead><tr><th>编号</th><th>日期</th><th>摘要</th><th>方向</th><th>金额</th><th>对方</th></tr></thead><tbody>${cash}</tbody></table>
@@ -693,31 +792,40 @@
         return;
       }
       const checked = Rules.checkCashAmount(fd.get('amount'));
-      if (!checked.ok) {
+      if (!checked.ok && checked.code !== 'CASH_LIMIT') {
         showStatus(checked.message, 'danger');
         return;
       }
       const currency = fd.get('currency') || 'HKD';
-      if (String(currency).toUpperCase() === 'HKD') {
-        const existing = (d.month.cashItems || []).reduce((sum, item) => sum + Number(item.amountHkd != null ? item.amountHkd : item.amount || 0), 0);
-        const monthChecked = Rules.checkCashMonth(existing, checked.amount);
-        if (!monthChecked.ok) {
-          showStatus(monthChecked.message, 'danger');
+      const amount = checked.ok ? checked.amount : Number(fd.get('amount'));
+      withSubmit(btn, async () => {
+        let out;
+        try {
+          out = await submitTracked('addCashItem', {
+            yearMonth: selectedMonth,
+            date: date,
+            desc: fd.get('desc'),
+            direction: fd.get('direction'),
+            amount: amount,
+            currency: currency,
+            counterparty: fd.get('counterparty'),
+            clientRequestId: cash.dataset.req,
+            __timeoutMs: 20000
+          });
+        } catch (err) {
+          if (err && err.code === 'CASH_LIMIT') {
+            showStatus(err.message, 'danger');
+            await render();
+            return;
+          }
+          throw err;
+        }
+        if (out.confirmedAfterTimeout) {
+          showStatus('请求超时，但已核对到现金登记 ' + ((out.readback && out.readback.id) || '') + '。未再次提交。', 'ok');
+          cash.dataset.req = '';
+          await render();
           return;
         }
-      }
-      withSubmit(btn, async () => {
-        const out = await api('addCashItem', {
-          yearMonth: selectedMonth,
-          date: date,
-          desc: fd.get('desc'),
-          direction: fd.get('direction'),
-          amount: checked.amount,
-          currency: currency,
-          counterparty: fd.get('counterparty'),
-          clientRequestId: cash.dataset.req,
-          __timeoutMs: 20000
-        });
         const rb = out.readback || {};
         if (!rb.listed) {
           showStatus('接口已返回，但本月列表未看到 ' + (rb.id || '') + '。请不要重复提交。', 'danger');
@@ -969,7 +1077,7 @@
       if (!invForm.dataset.req) invForm.dataset.req = newRequestId('INV');
       const fd = new FormData(invForm);
       withSubmit(btn, async () => {
-        const out = await api('createInvoiceDraft', {
+        const out = await submitTracked('createInvoiceDraft', {
           contractNo: fd.get('contractNo'),
           lineId: fd.get('lineId') || '',
           fileId: fd.get('fileId') || '',
@@ -977,7 +1085,17 @@
           __timeoutMs: 20000
         });
         const inv = out.invoice;
-        if (!inv || inv.official === true || inv.status !== '模拟/草稿 非正式凭证' || !inv.csv || inv.csv.indexOf('模拟/草稿 非正式凭证') < 0) {
+        if (!inv || inv.official === true || (inv.status && inv.status !== '模拟/草稿 非正式凭证')) {
+          showStatus('草稿结果不合格，未收下。', 'danger');
+          return;
+        }
+        if (out.confirmedAfterTimeout) {
+          showStatus('请求超时，但已核对到发票草稿 ' + inv.invoiceNo + '。未再次提交。模拟/草稿 非正式凭证。', 'ok');
+          invForm.dataset.req = '';
+          await render();
+          return;
+        }
+        if (!inv.csv || inv.csv.indexOf('模拟/草稿 非正式凭证') < 0) {
           showStatus('草稿结果不合格，未收下。', 'danger');
           return;
         }

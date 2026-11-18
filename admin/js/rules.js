@@ -77,6 +77,69 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  function unconfirmedCopy() {
+    return {
+      code: 'TIMEOUT_UNCONFIRMED',
+      mayWrite: false,
+      message: '请求超时，保存结果尚未核对。这不是写入失败，也不是写入成功。请不要再次提交。可使用只读核对查看列表；若仍无法确认，停止并交人工核对。'
+    };
+  }
+
+  function afterUncertainWrite(match) {
+    if (match && match.rejected) return { next: 'show-rejection', mayWrite: false };
+    if (match && match.confirmedAfterTimeout) return { next: 'show-saved', mayWrite: false };
+    return { next: 'unconfirmed', mayWrite: false };
+  }
+
+  function reviewCopy(match) {
+    var decided = afterUncertainWrite(match);
+    if (decided.next === 'show-rejection') {
+      return { state: 'rejected', mayWrite: false, message: '只读核对看到这笔已被拒绝，未入账。请不要再次提交。' };
+    }
+    if (decided.next === 'show-saved') {
+      return { state: 'saved', mayWrite: false, message: '只读核对看到这笔已在列表中。未再次提交。' };
+    }
+    return { state: 'unconfirmed', mayWrite: false, message: '只读核对仍未看到这笔。结果仍是未确认，不是写入失败，也不是写入成功。请不要再次提交，交人工核对。' };
+  }
+
+  function matchSavedWrite(kind, data, reqId) {
+    if (!reqId) return null;
+    data = data || {};
+    if (kind === 'plan') {
+      var plan = (data.plans || []).find(function (p) { return p && p.clientRequestId === reqId; });
+      if (!plan) return null;
+      return { plan: plan, idempotentReplay: true, confirmedAfterTimeout: true, warnings: data.warnings || [] };
+    }
+    if (kind === 'cash') {
+      var items = (data.month && data.month.cashItems) || [];
+      var item = items.find(function (c) { return c && c.clientRequestId === reqId; });
+      if (item) {
+        return {
+          item: item,
+          month: data.month,
+          idempotentReplay: true,
+          confirmedAfterTimeout: true,
+          readback: {
+            id: item.id,
+            amount: item.amount,
+            currency: item.currency,
+            yearMonth: data.month.yearMonth,
+            listed: true
+          }
+        };
+      }
+      var rejected = (data.rejectedCash || []).find(function (r) { return r && r.clientRequestId === reqId; });
+      if (rejected) return { rejected: true, reason: rejected.reason || '', code: 'CASH_LIMIT' };
+      return null;
+    }
+    if (kind === 'invoice') {
+      var inv = (data.invoices || []).find(function (x) { return x && x.clientRequestId === reqId; });
+      if (!inv) return null;
+      return { invoice: inv, idempotentReplay: true, confirmedAfterTimeout: true };
+    }
+    return null;
+  }
+
   function completionDecision(state) {
     state = state || {};
     var reasons = [];
@@ -149,6 +212,10 @@
     checkCashMonth: checkCashMonth,
     formalPostDecision: formalPostDecision,
     completionDecision: completionDecision,
+    matchSavedWrite: matchSavedWrite,
+    unconfirmedCopy: unconfirmedCopy,
+    afterUncertainWrite: afterUncertainWrite,
+    reviewCopy: reviewCopy,
     describeRelease: describeRelease
   };
 });
