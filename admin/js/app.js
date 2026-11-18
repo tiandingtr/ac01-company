@@ -44,11 +44,56 @@
     return Rules.canonYearMonth(value);
   }
 
-  function unconfirmedWriteError() {
-    const err = new Error('请求超时，尚未核对到已保存记录。请先查看列表，不要把超时当作失败再次提交。若列表没有这笔，再用同一请求号重试，不要新开一笔。');
-    err.code = 'TIMEOUT_UNCONFIRMED';
+  let pendingReview = null;
+
+  function unconfirmedWriteError(action, payload) {
+    const copy = Rules.unconfirmedCopy();
+    const err = new Error(copy.message);
+    err.code = copy.code;
     err.level = 'warn';
+    err.mayWrite = false;
+    err.review = { action: action, payload: payload };
     return err;
+  }
+
+  function ensureReviewButton() {
+    let btn = document.getElementById('readonly-check');
+    const status = document.getElementById('status');
+    if (!btn && status) {
+      btn = document.createElement('button');
+      btn.id = 'readonly-check';
+      btn.type = 'button';
+      btn.className = 'btn small ghost';
+      btn.textContent = '只读核对';
+      btn.hidden = true;
+      status.insertAdjacentElement('afterend', btn);
+      btn.addEventListener('click', function () { onReadonlyCheck(); });
+    }
+    return btn;
+  }
+
+  function showReviewButton(on) {
+    const btn = ensureReviewButton();
+    if (btn) btn.hidden = !on;
+  }
+
+  async function onReadonlyCheck() {
+    if (!pendingReview) {
+      showReviewButton(false);
+      showStatus('没有待核对的提交。请不要再次提交。', 'warn');
+      return;
+    }
+    let match = null;
+    try { match = await readBackOnce(pendingReview.action, pendingReview.payload); } catch (ignore) { match = null; }
+    const verdict = Rules.reviewCopy(match);
+    if (verdict.state === 'unconfirmed') {
+      showStatus(verdict.message, 'warn');
+      showReviewButton(true);
+      return;
+    }
+    pendingReview = null;
+    showReviewButton(false);
+    showStatus(verdict.message, verdict.state === 'saved' ? 'ok' : 'danger');
   }
 
   async function readBackOnce(action, payload) {
@@ -65,28 +110,27 @@
   }
 
   async function submitTracked(action, payload, file) {
+    pendingReview = null;
+    showReviewButton(false);
     try {
       return await api(action, payload, file);
     } catch (err) {
       if (!payload || !payload.clientRequestId || !err || (err.code !== 'TIMEOUT' && err.code !== 'NETWORK' && err.code !== 'BAD_RESPONSE')) throw err;
       let saved = null;
       try { saved = await readBackOnce(action, payload); } catch (ignore) { saved = null; }
-      if (saved && saved.rejected) {
-        const rejected = new Error(saved.reason || '该笔已被拒绝，未入账。请不要再次提交。');
-        rejected.code = saved.code || 'CASH_LIMIT';
-        throw rejected;
-      }
-      if (!saved) {
+      let decided = Rules.afterUncertainWrite(saved);
+      if (decided.next === 'unconfirmed') {
         await new Promise(function (resolve) { setTimeout(resolve, 1200); });
         try { saved = await readBackOnce(action, payload); } catch (ignore) { saved = null; }
+        decided = Rules.afterUncertainWrite(saved);
       }
-      if (saved && saved.rejected) {
-        const rejectedAgain = new Error(saved.reason || '该笔已被拒绝，未入账。请不要再次提交。');
-        rejectedAgain.code = saved.code || 'CASH_LIMIT';
-        throw rejectedAgain;
+      if (decided.next === 'show-rejection') {
+        const rejected = new Error((saved && saved.reason) || '该笔已被拒绝，未入账。请不要再次提交。');
+        rejected.code = (saved && saved.code) || 'CASH_LIMIT';
+        throw rejected;
       }
-      if (saved) return saved;
-      throw unconfirmedWriteError();
+      if (decided.next === 'show-saved') return saved;
+      throw unconfirmedWriteError(action, payload);
     }
   }
 
@@ -102,14 +146,21 @@
       return await fn();
     } catch (err) {
       const level = err && err.level === 'warn' ? 'warn' : 'danger';
-      showStatus(err && err.message ? err.message : '提交失败。', level);
+      if (err && err.code === 'TIMEOUT_UNCONFIRMED' && err.review) {
+        pendingReview = err.review;
+        showReviewButton(true);
+      } else {
+        pendingReview = null;
+        showReviewButton(false);
+      }
+      showStatus(err && err.message ? err.message : '提交没有完成。', level);
       return null;
     } finally {
       if (btn.isConnected) {
         btn.dataset.busy = '0';
-        btn.disabled = false;
         btn.removeAttribute('aria-busy');
         btn.textContent = prev;
+        btn.disabled = !!pendingReview;
       }
     }
   }

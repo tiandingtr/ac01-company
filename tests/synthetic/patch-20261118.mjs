@@ -1,3 +1,5 @@
+import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadEngine, boot, call, login } from './engine.mjs';
@@ -94,6 +96,69 @@ const missedPlan = Rules.matchSavedWrite('plan', { plans: [{ id: 'PL-OTHER', cli
 const matchedReject = Rules.matchSavedWrite('cash', { month: { cashItems: [], yearMonth: '2026-06' }, rejectedCash: [{ clientRequestId: 'CASH-MONTH-001', reason: 'over' }] }, 'CASH-MONTH-001');
 check('ui-readback-finds-saved-plan', matchedPlan && matchedPlan.confirmedAfterTimeout === true && matchedPlan.plan.id === originalId && missedPlan == null, { matchedPlan, missedPlan });
 check('ui-readback-does-not-treat-rejection-as-saved', matchedReject && matchedReject.rejected === true && !matchedReject.confirmedAfterTimeout, matchedReject);
+
+const monthRec = engine.monthRecord_(store.months['2026-06']);
+const cashBack = JSON.parse(monthRec['现金及第三方JSON']);
+const rejectedBack = JSON.parse(monthRec['被拒现金JSON']);
+const cashMatch = Rules.matchSavedWrite('cash', { month: { cashItems: cashBack, yearMonth: '2026-06', rejectedCash: rejectedBack }, rejectedCash: rejectedBack }, 'CASH-MONTH-001');
+const cashSaved = Rules.matchSavedWrite('cash', { month: { cashItems: cashBack, yearMonth: '2026-06' }, rejectedCash: [] }, 'CASH-FILL-0');
+check('cash-json-roundtrip-rejection', cashMatch && cashMatch.rejected === true && !cashMatch.confirmedAfterTimeout, cashMatch);
+check('cash-json-roundtrip-saved', cashSaved && cashSaved.confirmedAfterTimeout === true && cashSaved.readback && cashSaved.readback.listed === true, cashSaved);
+const planMatch = Rules.matchSavedWrite('plan', { plans: store.plans }, 'PL-PATCH-1');
+const invoiceMatch = Rules.matchSavedWrite('invoice', { invoices: store.invoices }, 'INV-PATCH-1');
+check('plan-readback-matches-row', planMatch && planMatch.plan.id === originalId && planMatch.plan.clientRequestId === 'PL-PATCH-1', planMatch && planMatch.plan);
+check('invoice-readback-matches-row', invoiceMatch && invoiceMatch.invoice.invoiceNo === draftNo && invoiceMatch.invoice.clientRequestId === 'INV-PATCH-1', invoiceMatch && invoiceMatch.invoice);
+
+const uncertainSaved = Rules.afterUncertainWrite(matchedPlan);
+const uncertainMiss = Rules.afterUncertainWrite(null);
+const uncertainReject = Rules.afterUncertainWrite(matchedReject);
+const copy = Rules.unconfirmedCopy();
+const reviewMiss = Rules.reviewCopy(null);
+check('unconfirmed-does-not-authorize-write', uncertainSaved.mayWrite === false && uncertainMiss.next === 'unconfirmed' && uncertainMiss.mayWrite === false && uncertainReject.mayWrite === false && copy.mayWrite === false && reviewMiss.mayWrite === false, { uncertainMiss, copy });
+check('unconfirmed-copy-does-not-ask-retry', copy.message.indexOf('重试') < 0 && copy.message.indexOf('同一请求号') < 0 && reviewMiss.message.indexOf('重试') < 0 && copy.message.indexOf('不是写入失败') >= 0, copy.message);
+
+store.__failAuditWrite = true;
+const auditFail = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2026-04', date: '2026-04-02', desc: 'SYN_AUDIT_FAIL', direction: '收入', amount: 2000.01, currency: 'HKD', clientRequestId: 'CASH-AUDIT-FAIL'
+});
+delete store.__failAuditWrite;
+const auditLogs = (store.logs || []).filter((l) => String(l.notes || '').indexOf('CASH-AUDIT-FAIL') >= 0 || String(l.notes || '').indexOf('2000.01') >= 0 && String(l.target || '').indexOf('2026-04') >= 0);
+check('audit-failure-not-claimed-saved', auditFail.ok === false && auditFail.code === 'CASH_LIMIT' && auditFail.business && auditFail.business.outcome === '拒绝' && auditFail.business.written === false && auditFail.audit && auditFail.audit.attempted === true && auditFail.audit.saved === false && auditFail.rejectionData && auditFail.rejectionData.saved === true && String(auditFail.error).indexOf('审计日志未能写入') >= 0 && String(auditFail.error).indexOf('审计日志已写入') < 0 && String(auditFail.error).indexOf('成功') < 0 && auditLogs.length === 0, auditFail);
+
+store.__failRejectionPersist = true;
+const dataFail = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2026-03', date: '2026-03-02', desc: 'SYN_DATA_FAIL', direction: '收入', amount: 2000.01, currency: 'HKD', clientRequestId: 'CASH-DATA-FAIL'
+});
+delete store.__failRejectionPersist;
+check('rejection-data-failure-is-separate', dataFail.ok === false && dataFail.business.written === false && dataFail.rejectionData.attempted === true && dataFail.rejectionData.saved === false && dataFail.audit.saved === true && String(dataFail.error).indexOf('被拒记录未能写入') >= 0 && String(dataFail.error).indexOf('成功') < 0, dataFail);
+const dataLog = (store.logs || []).filter((l) => String(l.notes || '').indexOf('被拒底稿未能落库') >= 0 && l.result === '拒绝');
+check('rejection-data-failure-audit-says-not-saved', dataLog.length === 1 && dataLog[0].result !== '成功', dataLog);
+
+store.__failBusinessWrite = true;
+const boom = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2026-02', date: '2026-02-02', desc: 'SYN_BOOM', direction: '收入', amount: 1, currency: 'HKD', clientRequestId: 'CASH-BOOM'
+});
+delete store.__failBusinessWrite;
+const boomListed = !!(((store.months['2026-02'] || {}).cashItems || []).some((item) => item.clientRequestId === 'CASH-BOOM'));
+check('business-exception-not-success', boom.ok === false && boom.code === 'BUSINESS_WRITE_FAILED' && boom.business.outcome === '未完成' && boom.business.written == null && boom.audit.attempted === false && boom.audit.saved === false && boomListed === false && String(boom.error).indexOf('成功') < 0 && String(boom.error).indexOf('审计日志已写入') < 0, boom);
+
+function fileSha(rel) {
+  return crypto.createHash('sha256').update(fs.readFileSync(path.join(root, rel))).digest('hex');
+}
+const pairs = [
+  ['gas/release/Code.js', 'dist/ac01-gas/Code.js'],
+  ['admin/js/api.js', 'dist/ac01-pages/admin/js/api.js'],
+  ['admin/js/app.js', 'dist/ac01-pages/admin/js/app.js'],
+  ['admin/js/rules.js', 'dist/ac01-pages/admin/js/rules.js']
+];
+const sums = JSON.parse(fs.readFileSync(path.join(root, 'dist/SHA256SUMS.json'), 'utf8'));
+pairs.forEach(function (pair) {
+  const same = fileSha(pair[0]) === fileSha(pair[1]);
+  const row = sums.files.find(function (item) { return item.path === pair[1]; });
+  check('dist-matches-' + pair[1], same && row && row.sha256 === fileSha(pair[1]), { same: same, listed: row && row.sha256 });
+});
+const sourceText = fs.readFileSync(path.join(root, 'admin/js/app.js'), 'utf8') + fs.readFileSync(path.join(root, 'admin/js/api.js'), 'utf8');
+check('source-does-not-ask-resubmit', sourceText.indexOf('同一请求号重试') < 0 && sourceText.indexOf('再用同一请求号') < 0, true);
 
 console.log(JSON.stringify({ passed: failures.length === 0, failed: failures.length, label: 'local-pure-and-memory', liveWrite: false }));
 if (failures.length) {

@@ -77,6 +77,69 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  function unconfirmedCopy() {
+    return {
+      code: 'TIMEOUT_UNCONFIRMED',
+      mayWrite: false,
+      message: '请求超时，保存结果尚未核对。这不是写入失败，也不是写入成功。请不要再次提交。可使用只读核对查看列表；若仍无法确认，停止并交人工核对。'
+    };
+  }
+
+  function afterUncertainWrite(match) {
+    if (match && match.rejected) return { next: 'show-rejection', mayWrite: false };
+    if (match && match.confirmedAfterTimeout) return { next: 'show-saved', mayWrite: false };
+    return { next: 'unconfirmed', mayWrite: false };
+  }
+
+  function reviewCopy(match) {
+    var decided = afterUncertainWrite(match);
+    if (decided.next === 'show-rejection') {
+      return { state: 'rejected', mayWrite: false, message: '只读核对看到这笔已被拒绝，未入账。请不要再次提交。' };
+    }
+    if (decided.next === 'show-saved') {
+      return { state: 'saved', mayWrite: false, message: '只读核对看到这笔已在列表中。未再次提交。' };
+    }
+    return { state: 'unconfirmed', mayWrite: false, message: '只读核对仍未看到这笔。结果仍是未确认，不是写入失败，也不是写入成功。请不要再次提交，交人工核对。' };
+  }
+
+  function matchSavedWrite(kind, data, reqId) {
+    if (!reqId) return null;
+    data = data || {};
+    if (kind === 'plan') {
+      var plan = (data.plans || []).find(function (p) { return p && p.clientRequestId === reqId; });
+      if (!plan) return null;
+      return { plan: plan, idempotentReplay: true, confirmedAfterTimeout: true, warnings: data.warnings || [] };
+    }
+    if (kind === 'cash') {
+      var items = (data.month && data.month.cashItems) || [];
+      var item = items.find(function (c) { return c && c.clientRequestId === reqId; });
+      if (item) {
+        return {
+          item: item,
+          month: data.month,
+          idempotentReplay: true,
+          confirmedAfterTimeout: true,
+          readback: {
+            id: item.id,
+            amount: item.amount,
+            currency: item.currency,
+            yearMonth: data.month.yearMonth,
+            listed: true
+          }
+        };
+      }
+      var rejected = (data.rejectedCash || []).find(function (r) { return r && r.clientRequestId === reqId; });
+      if (rejected) return { rejected: true, reason: rejected.reason || '', code: 'CASH_LIMIT' };
+      return null;
+    }
+    if (kind === 'invoice') {
+      var inv = (data.invoices || []).find(function (x) { return x && x.clientRequestId === reqId; });
+      if (!inv) return null;
+      return { invoice: inv, idempotentReplay: true, confirmedAfterTimeout: true };
+    }
+    return null;
+  }
+
   function completionDecision(state) {
     state = state || {};
     var reasons = [];
@@ -86,6 +149,61 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  function stringOrEmpty(value) {
+    return typeof value === 'string' ? value : '';
+  }
+
+  /* Formats the me.release object already returned at login. Does not invent ids. */
+  function describeRelease(data) {
+    var release = data && typeof data.release === 'object' && data.release ? data.release : null;
+    var buildId = stringOrEmpty(release && release.buildId) || stringOrEmpty(data && data.buildId);
+    var dataMode = stringOrEmpty(release && release.dataMode) || stringOrEmpty(data && data.dataMode);
+    var head = '版本 ' + (buildId || '未返回') + ' · 环境 ' + (dataMode || '未返回');
+    if (!release) {
+      return {
+        state: 'unavailable',
+        spreadsheetId: '',
+        driveRootId: '',
+        buildId: buildId,
+        dataMode: dataMode,
+        text: head + '。隔离目标未从本次登录接口返回，页面不填入预置编号。'
+      };
+    }
+    var sheet = stringOrEmpty(release.spreadsheetId);
+    var drive = stringOrEmpty(release.driveRootId);
+    if (release.mismatch === true || release.targetsMatch === false) {
+      var echoed = '';
+      if (sheet) echoed += ' 接口返回的表格 ' + sheet + '。';
+      if (drive) echoed += ' 接口返回的凭证根 ' + drive + '。';
+      return {
+        state: 'mismatch',
+        spreadsheetId: sheet,
+        driveRootId: drive,
+        buildId: buildId,
+        dataMode: dataMode,
+        text: head + '。接口标明隔离目标不一致。页面不另填编号。' + echoed
+      };
+    }
+    if (!sheet || !drive) {
+      return {
+        state: 'unavailable',
+        spreadsheetId: sheet,
+        driveRootId: drive,
+        buildId: buildId,
+        dataMode: dataMode,
+        text: head + '。接口未返回完整的有效表格或凭证根。页面不填入预置编号。'
+      };
+    }
+    return {
+      state: 'observed',
+      spreadsheetId: sheet,
+      driveRootId: drive,
+      buildId: buildId,
+      dataMode: dataMode,
+      text: head + '。有效表格 ' + sheet + '。有效凭证根 ' + drive + '。来源：本次 me.release。'
+    };
+  }
+
   return {
     CASH_LINE_LIMIT: CASH_LINE_LIMIT,
     CASH_MONTH_LIMIT: CASH_MONTH_LIMIT,
@@ -93,6 +211,11 @@
     checkCashAmount: checkCashAmount,
     checkCashMonth: checkCashMonth,
     formalPostDecision: formalPostDecision,
-    completionDecision: completionDecision
+    completionDecision: completionDecision,
+    matchSavedWrite: matchSavedWrite,
+    unconfirmedCopy: unconfirmedCopy,
+    afterUncertainWrite: afterUncertainWrite,
+    reviewCopy: reviewCopy,
+    describeRelease: describeRelease
   };
 });

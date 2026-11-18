@@ -101,7 +101,7 @@ function doPost(e) {
     var result = dispatch_(action, payload, token, uploaded);
     return json_({ ok: true, data: result });
   } catch (err) {
-    return json_({ ok: false, error: String(err.message || err), code: err.code || '' });
+    return json_(refusalBody_(err));
   }
 }
 
@@ -520,28 +520,64 @@ function publicUser_(user) {
 }
 
 function log_(actor, action, target, result, notes) {
-  try {
-    if (testStore_()) {
-      testStore_().logs = testStore_().logs || [];
-      testStore_().logs.push({
-        time: nowIso_(),
-        actor: actor || '',
-        action: action || '',
-        target: target || '',
-        result: result || '',
-        notes: notes || ''
-      });
-      return;
+  if (testStore_() && testStore_().__failAuditWrite) {
+    var forced = new Error('模拟审计写入失败');
+    forced.code = 'AUDIT_WRITE_FAILED';
+    throw forced;
+  }
+  var entry = {
+    time: nowIso_(),
+    actor: actor || '',
+    action: action || '',
+    target: target || '',
+    result: result || '',
+    notes: notes || ''
+  };
+  if (testStore_()) {
+    testStore_().logs = testStore_().logs || [];
+    testStore_().logs.push(entry);
+    return { saved: true };
+  }
+  appendRow_(LOG_SHEET, {
+    '时间': entry.time,
+    '操作人': entry.actor,
+    '动作': entry.action,
+    '对象': entry.target,
+    '结果': entry.result,
+    '备注': entry.notes
+  });
+  return { saved: true };
+}
+
+function refusalBody_(err) {
+  err = err || {};
+  var audited = !!(err.audit || (err.auditStatus && err.auditStatus.attempted));
+  var business = err.businessStatus || { outcome: audited ? '拒绝' : '未完成', written: false };
+  var audit = err.auditStatus || { attempted: false, saved: false, error: '' };
+  var rejectionData = err.rejectionDataStatus || { attempted: false, saved: false, error: '' };
+  var error = String(err.message || err);
+  if (audited && business.outcome === '拒绝') {
+    error = '业务已拒绝，未入账。原因：' + String(err.message || '');
+    if (rejectionData.attempted) error += rejectionData.saved ? '被拒记录已写入。' : '被拒记录未能写入。';
+    if (audit.attempted) error += audit.saved ? '审计日志已写入。' : '审计日志未能写入，不能当作已留下可核对记录。';
+  }
+  return {
+    ok: false,
+    error: error,
+    code: err.code || '',
+    status: err.status || 400,
+    business: { outcome: business.outcome, written: business.outcome === '拒绝' ? false : null },
+    audit: {
+      attempted: !!audit.attempted,
+      saved: !!audit.saved,
+      error: audit.saved ? '' : (audit.error || '')
+    },
+    rejectionData: {
+      attempted: !!rejectionData.attempted,
+      saved: !!rejectionData.saved,
+      error: rejectionData.saved ? '' : (rejectionData.error || '')
     }
-    appendRow_(LOG_SHEET, {
-      '时间': nowIso_(),
-      '操作人': actor || '',
-      '动作': action || '',
-      '对象': target || '',
-      '结果': result || '',
-      '备注': notes || ''
-    });
-  } catch (ignore) {}
+  };
 }
 
 function cache_() {
@@ -1443,7 +1479,14 @@ function upsertPlanRow_(p) {
 }
 
 function persist_(store, dirty) {
-  if (testStore_()) return;
+  if (testStore_()) {
+    if (testStore_().__failRejectionPersist) {
+      var persistErr = new Error('模拟被拒底稿写入失败');
+      persistErr.code = 'REJECTION_DATA_FAILED';
+      throw persistErr;
+    }
+    return;
+  }
   dirty = dirty || {};
   if (dirty.yearMonth) dirty.yearMonth = canonYearMonth_(dirty.yearMonth) || dirty.yearMonth;
   ensureKnownHeaders_();
@@ -1622,6 +1665,11 @@ function findCashByRequest_(store, reqId) {
 function addCashItem_(store, yearMonth, payload) {
   var key = canonYearMonth_(yearMonth);
   if (!key) fail_('年月须为 YYYY-MM，例如 2026-11。', 'BAD_MONTH', 400);
+  if (testStore_() && testStore_().__failBusinessWrite) {
+    var boom = new Error('模拟业务写入异常');
+    boom.code = 'BUSINESS_WRITE_FAILED';
+    throw boom;
+  }
   var replay = findCashByRequest_(store, payload.clientRequestId);
   if (replay) {
     replay.item.idempotentReplay = true;
@@ -3226,15 +3274,34 @@ function dispatch_(action, payload, token, uploaded) {
   try {
     result = applyAction_(store, action, payload || {}, user, uploaded);
   } catch (err) {
-    if (err && err.audit) {
-      log_(user.jobId, err.audit.action, err.audit.target, '拒绝', err.audit.notes || String(err.message || ''));
-    }
+    err.rejectionDataStatus = { attempted: false, saved: false, error: '' };
     if (err && err.dirty) {
+      err.rejectionDataStatus.attempted = true;
       try {
         persist_(store, err.dirty);
+        err.rejectionDataStatus.saved = true;
       } catch (persistErr) {
-        log_(user.jobId, (err.audit && err.audit.action) || '拒绝落库', (err.audit && err.audit.target) || '', '拒绝', '拒绝已记录，但底稿未能落库：' + String(persistErr && persistErr.message || persistErr));
+        err.rejectionDataStatus.saved = false;
+        err.rejectionDataStatus.error = String(persistErr && persistErr.message || persistErr);
       }
+    }
+    err.auditStatus = { attempted: false, saved: false, error: '' };
+    if (err && err.audit) {
+      err.auditStatus.attempted = true;
+      err.businessStatus = { outcome: '拒绝', written: false };
+      var auditNote = err.audit.notes || String(err.message || '');
+      if (err.rejectionDataStatus.attempted && !err.rejectionDataStatus.saved) {
+        auditNote += ' 被拒底稿未能落库。';
+      }
+      try {
+        log_(user.jobId, err.audit.action, err.audit.target, '拒绝', auditNote);
+        err.auditStatus.saved = true;
+      } catch (auditErr) {
+        err.auditStatus.saved = false;
+        err.auditStatus.error = String(auditErr && auditErr.message || auditErr);
+      }
+    } else {
+      err.businessStatus = { outcome: '未完成', written: false };
     }
     throw err;
   }
@@ -3298,6 +3365,8 @@ var FS_RULES = {
   sheetMonthKey_: sheetMonthKey_,
   openingConfirmed_: openingConfirmed_,
   checkCashLimits_: checkCashLimits_,
+  refusalBody_: refusalBody_,
+  monthRecord_: monthRecord_,
   planRecord_: planRecord_,
   planFromSheetRow_: planFromSheetRow_,
   planUpsertTarget_: planUpsertTarget_,
