@@ -66,9 +66,9 @@
   }
 
   function timeoutError() {
-    const err = new Error('请求超时，尚未确认是否已保存。请使用同一请求号重试；已保存的登记不会重复入账。');
+    const err = new Error('请求超时，尚未确认是否已保存。请先核对列表，不要把超时当作失败再次提交。');
     err.code = 'TIMEOUT';
-    err.retryable = true;
+    err.retryable = false;
     return err;
   }
 
@@ -81,7 +81,7 @@
       return await fetch(url, opts);
     } catch (e) {
       if (e && (e.name === 'AbortError' || /aborted/i.test(String(e.message || '')))) throw timeoutError();
-      const err = new Error('网络请求失败，尚未确认是否已保存。可使用同一请求号重试。');
+      const err = new Error('网络请求失败，尚未确认是否已保存。请先核对列表，不要把这次失败当作未保存而另开一笔。');
       err.code = 'NETWORK';
       err.retryable = true;
       throw err;

@@ -77,6 +77,44 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  function matchSavedWrite(kind, data, reqId) {
+    if (!reqId) return null;
+    data = data || {};
+    if (kind === 'plan') {
+      var plan = (data.plans || []).find(function (p) { return p && p.clientRequestId === reqId; });
+      if (!plan) return null;
+      return { plan: plan, idempotentReplay: true, confirmedAfterTimeout: true, warnings: data.warnings || [] };
+    }
+    if (kind === 'cash') {
+      var items = (data.month && data.month.cashItems) || [];
+      var item = items.find(function (c) { return c && c.clientRequestId === reqId; });
+      if (item) {
+        return {
+          item: item,
+          month: data.month,
+          idempotentReplay: true,
+          confirmedAfterTimeout: true,
+          readback: {
+            id: item.id,
+            amount: item.amount,
+            currency: item.currency,
+            yearMonth: data.month.yearMonth,
+            listed: true
+          }
+        };
+      }
+      var rejected = (data.rejectedCash || []).find(function (r) { return r && r.clientRequestId === reqId; });
+      if (rejected) return { rejected: true, reason: rejected.reason || '', code: 'CASH_LIMIT' };
+      return null;
+    }
+    if (kind === 'invoice') {
+      var inv = (data.invoices || []).find(function (x) { return x && x.clientRequestId === reqId; });
+      if (!inv) return null;
+      return { invoice: inv, idempotentReplay: true, confirmedAfterTimeout: true };
+    }
+    return null;
+  }
+
   function completionDecision(state) {
     state = state || {};
     var reasons = [];
@@ -149,6 +187,7 @@
     checkCashMonth: checkCashMonth,
     formalPostDecision: formalPostDecision,
     completionDecision: completionDecision,
+    matchSavedWrite: matchSavedWrite,
     describeRelease: describeRelease
   };
 });
