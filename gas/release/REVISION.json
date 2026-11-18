@@ -6,14 +6,14 @@
   "isolatedSpreadsheetId": "1nTL99h2NBtPvPqaccwWXARF6Cc0JOG3B4PMqrGFBIdQ",
   "isolatedDriveRootId": "1pap27ixWjsIUpmIWzRI6pI0YPj_okD18",
   "liveV1CodeSha256": "ac6270882eea6090cc2fd328f491db2f4478f8bfa9c172a6566c606d60c1df58",
-  "releaseCodeSha256": "bba6140d9976c46e6b5785a3cdc3434f7d8fa4b59792b65305071a82085f669c",
+  "releaseCodeSha256": "a2694ebd35201f60e4857530a5cd50f94a076f0d4879b367ccd1a3b2209f6cfa",
   "releaseManifestSha256": "6f6008a850624a043e1c6724b1c83bec8057304e599871889f1d02d074ff4415",
   "importManifestSha256DoNotDeploy": "e91e4f253322e87f5a3dd8b79913f966a42315fb5577fba0b28578aa1b122e49",
   "frontend": {
-    "admin/js/app.js": "bbed62c79f0783cfeeab5abb1ce0322b290e8b50d8d4d253ecb03e0bd1d2234a",
-    "admin/js/api.js": "353a8cb96d9bb0614dd2661ce1baa9205eb98f12a0a371f6f63a6033ac3588a4",
+    "admin/js/app.js": "b51cbb4727be5a5375da8cfaf1ef77b61a43b1b21ee984068d77739fd2b08817",
+    "admin/js/api.js": "5c2f3bba5c05a36d8810761215c918e6cacb087d1be41105f47a9d5343c0615d",
     "admin/js/build.js": "7ba66df15ce4a2c3e66b79cd4d970517b849d2bb49a99c147c105cb048c4db20",
-    "admin/js/rules.js": "65c671bc0a393ea0ddde32883107fddd1e64deee87b0b5ec54251037b71d80d3"
+    "admin/js/rules.js": "b29f2d1b0b64b6b5afa03394fab8aa94e49287eb4ec06431f67cff027b24fbbb"
   },
   "deploy": "Not performed. Host final gate still required."
 }

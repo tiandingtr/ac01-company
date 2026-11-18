@@ -8,8 +8,8 @@
     },
     {
       "path": "dist/ac01-gas/Code.js",
-      "sha256": "bba6140d9976c46e6b5785a3cdc3434f7d8fa4b59792b65305071a82085f669c",
-      "bytes": 124837
+      "sha256": "a2694ebd35201f60e4857530a5cd50f94a076f0d4879b367ccd1a3b2209f6cfa",
+      "bytes": 130794
     },
     {
       "path": "dist/ac01-gas/RELEASE.txt",
@@ -123,13 +123,13 @@
     },
     {
       "path": "dist/ac01-pages/admin/js/api.js",
-      "sha256": "353a8cb96d9bb0614dd2661ce1baa9205eb98f12a0a371f6f63a6033ac3588a4",
-      "bytes": 7205
+      "sha256": "5c2f3bba5c05a36d8810761215c918e6cacb087d1be41105f47a9d5343c0615d",
+      "bytes": 7296
     },
     {
       "path": "dist/ac01-pages/admin/js/app.js",
-      "sha256": "bbed62c79f0783cfeeab5abb1ce0322b290e8b50d8d4d253ecb03e0bd1d2234a",
-      "bytes": 59330
+      "sha256": "b51cbb4727be5a5375da8cfaf1ef77b61a43b1b21ee984068d77739fd2b08817",
+      "bytes": 64119
     },
     {
       "path": "dist/ac01-pages/admin/js/build.js",
@@ -143,8 +143,8 @@
     },
     {
       "path": "dist/ac01-pages/admin/js/rules.js",
-      "sha256": "65c671bc0a393ea0ddde32883107fddd1e64deee87b0b5ec54251037b71d80d3",
-      "bytes": 3589
+      "sha256": "b29f2d1b0b64b6b5afa03394fab8aa94e49287eb4ec06431f67cff027b24fbbb",
+      "bytes": 8561
     },
     {
       "path": "dist/ac01-pages/assets/global.js",

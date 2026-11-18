@@ -49,7 +49,8 @@ var CLOSED_STATES = {
 };
 
 var EXTRA_HEADERS = {
-  '02_经营计划与法定提醒': ['编号', '回馈', '回馈人', '回馈时间'],
+  '02_经营计划与法定提醒': ['编号', '回馈', '回馈人', '回馈时间', '请求号'],
+  '08_发票台账': ['请求号', '来源指纹'],
   '04_流水日记账': ['来源键', '月结单编号', '操作记录'],
   '06_资料与凭证台账': ['认领记录', '上传人', 'MIME', '大小'],
   '07_合同台账': ['签署正本编号', '首期凭证编号', '双方协议文件编号', '履约计划JSON', '创建时间', '创建人'],
@@ -100,7 +101,7 @@ function doPost(e) {
     var result = dispatch_(action, payload, token, uploaded);
     return json_({ ok: true, data: result });
   } catch (err) {
-    return json_({ ok: false, error: String(err.message || err), code: err.code || '' });
+    return json_(refusalBody_(err));
   }
 }
 
@@ -120,6 +121,20 @@ function fail_(msg, code, status) {
   var err = new Error(msg);
   err.code = code || '';
   err.status = status || 400;
+  throw err;
+}
+
+function failAudit_(msg, code, status, audit, dirty) {
+  var err = new Error(msg);
+  err.code = code || '';
+  err.status = status || 400;
+  err.audit = {
+    action: (audit && audit.action) || '',
+    target: (audit && audit.target) || '',
+    result: '拒绝',
+    notes: (audit && audit.notes) || msg
+  };
+  if (dirty) err.dirty = dirty;
   throw err;
 }
 
@@ -505,28 +520,64 @@ function publicUser_(user) {
 }
 
 function log_(actor, action, target, result, notes) {
-  try {
-    if (testStore_()) {
-      testStore_().logs = testStore_().logs || [];
-      testStore_().logs.push({
-        time: nowIso_(),
-        actor: actor || '',
-        action: action || '',
-        target: target || '',
-        result: result || '',
-        notes: notes || ''
-      });
-      return;
+  if (testStore_() && testStore_().__failAuditWrite) {
+    var forced = new Error('模拟审计写入失败');
+    forced.code = 'AUDIT_WRITE_FAILED';
+    throw forced;
+  }
+  var entry = {
+    time: nowIso_(),
+    actor: actor || '',
+    action: action || '',
+    target: target || '',
+    result: result || '',
+    notes: notes || ''
+  };
+  if (testStore_()) {
+    testStore_().logs = testStore_().logs || [];
+    testStore_().logs.push(entry);
+    return { saved: true };
+  }
+  appendRow_(LOG_SHEET, {
+    '时间': entry.time,
+    '操作人': entry.actor,
+    '动作': entry.action,
+    '对象': entry.target,
+    '结果': entry.result,
+    '备注': entry.notes
+  });
+  return { saved: true };
+}
+
+function refusalBody_(err) {
+  err = err || {};
+  var audited = !!(err.audit || (err.auditStatus && err.auditStatus.attempted));
+  var business = err.businessStatus || { outcome: audited ? '拒绝' : '未完成', written: false };
+  var audit = err.auditStatus || { attempted: false, saved: false, error: '' };
+  var rejectionData = err.rejectionDataStatus || { attempted: false, saved: false, error: '' };
+  var error = String(err.message || err);
+  if (audited && business.outcome === '拒绝') {
+    error = '业务已拒绝，未入账。原因：' + String(err.message || '');
+    if (rejectionData.attempted) error += rejectionData.saved ? '被拒记录已写入。' : '被拒记录未能写入。';
+    if (audit.attempted) error += audit.saved ? '审计日志已写入。' : '审计日志未能写入，不能当作已留下可核对记录。';
+  }
+  return {
+    ok: false,
+    error: error,
+    code: err.code || '',
+    status: err.status || 400,
+    business: { outcome: business.outcome, written: business.outcome === '拒绝' ? false : null },
+    audit: {
+      attempted: !!audit.attempted,
+      saved: !!audit.saved,
+      error: audit.saved ? '' : (audit.error || '')
+    },
+    rejectionData: {
+      attempted: !!rejectionData.attempted,
+      saved: !!rejectionData.saved,
+      error: rejectionData.saved ? '' : (rejectionData.error || '')
     }
-    appendRow_(LOG_SHEET, {
-      '时间': nowIso_(),
-      '操作人': actor || '',
-      '动作': action || '',
-      '对象': target || '',
-      '结果': result || '',
-      '备注': notes || ''
-    });
-  } catch (ignore) {}
+  };
 }
 
 function cache_() {
@@ -708,29 +759,32 @@ function loadConfig_() {
   return config;
 }
 
+function planFromSheetRow_(r) {
+  var id = asStr_(r['编号']);
+  if (!id) {
+    id = 'PL-' + asStr_(r['年月']) + '-' + asStr_(r['类型（固定/灵活）']) + '-' + asStr_(r['事项']);
+  }
+  return {
+    id: id,
+    yearMonth: canonYearMonth_(r['年月']),
+    type: asStr_(r['类型（固定/灵活）']),
+    title: asStr_(r['事项']),
+    planDate: asYmd_(r['计划日期']),
+    owner: asStr_(r['负责人']),
+    status: asStr_(r['完成状态']) || '未完成',
+    doneDate: asYmd_(r['完成日期']),
+    waiverRelated: asStr_(r['是否免原件项目']),
+    notes: asStr_(r['备注']),
+    feedback: asStr_(r['回馈']),
+    feedbackBy: asStr_(r['回馈人']),
+    feedbackAt: asStr_(r['回馈时间']),
+    clientRequestId: asStr_(r['请求号']),
+    _row: r._row
+  };
+}
+
 function loadPlans_() {
-  return readTable_('02_经营计划与法定提醒').rows.map(function (r) {
-    var id = asStr_(r['编号']);
-    if (!id) {
-      id = 'PL-' + asStr_(r['年月']) + '-' + asStr_(r['类型（固定/灵活）']) + '-' + asStr_(r['事项']);
-    }
-    return {
-      id: id,
-      yearMonth: canonYearMonth_(r['年月']),
-      type: asStr_(r['类型（固定/灵活）']),
-      title: asStr_(r['事项']),
-      planDate: asYmd_(r['计划日期']),
-      owner: asStr_(r['负责人']),
-      status: asStr_(r['完成状态']) || '未完成',
-      doneDate: asYmd_(r['完成日期']),
-      waiverRelated: asStr_(r['是否免原件项目']),
-      notes: asStr_(r['备注']),
-      feedback: asStr_(r['回馈']),
-      feedbackBy: asStr_(r['回馈人']),
-      feedbackAt: asStr_(r['回馈时间']),
-      _row: r._row
-    };
-  });
+  return readTable_('02_经营计划与法定提醒').rows.map(planFromSheetRow_);
 }
 
 function planRecord_(p) {
@@ -747,8 +801,41 @@ function planRecord_(p) {
     '备注': p.notes || '',
     '回馈': p.feedback || '',
     '回馈人': p.feedbackBy || '',
-    '回馈时间': p.feedbackAt || ''
+    '回馈时间': p.feedbackAt || '',
+    '请求号': p.clientRequestId || ''
   };
+}
+
+function planUpsertTarget_(rows, plan) {
+  rows = rows || [];
+  plan = plan || {};
+  var req = asStr_(plan.clientRequestId);
+  var incomingId = asStr_(plan.id);
+  var found = null;
+  if (req) {
+    found = rows.find(function (r) { return asStr_(r['请求号']) === req; });
+    if (found) {
+      var kept = asStr_(found['编号']) || incomingId;
+      return { action: 'update', row: found._row, id: kept, preserveId: true };
+    }
+  }
+  if (incomingId) {
+    found = rows.find(function (r) { return asStr_(r['编号']) === incomingId; });
+    if (found) return { action: 'update', row: found._row, id: incomingId, preserveId: false };
+  }
+  found = rows.find(function (r) {
+    return canonYearMonth_(r['年月']) === canonYearMonth_(plan.yearMonth)
+      && asStr_(r['类型（固定/灵活）']) === asStr_(plan.type)
+      && asStr_(r['事项']) === asStr_(plan.title);
+  });
+  if (!found) return { action: 'insert', row: null, id: incomingId, preserveId: false };
+  var storedId = asStr_(found['编号']);
+  var storedReq = asStr_(found['请求号']);
+  if (storedId && incomingId && storedId !== incomingId) {
+    if (req && storedReq === req) return { action: 'update', row: found._row, id: storedId, preserveId: true };
+    return { action: 'insert', row: null, id: incomingId, preserveId: false };
+  }
+  return { action: 'update', row: found._row, id: storedId || incomingId, preserveId: false };
 }
 
 function loadProposals_(files) {
@@ -954,23 +1041,27 @@ function fourRecord_(r) {
   };
 }
 
+function invoiceFromSheetRow_(r) {
+  return {
+    invoiceNo: asStr_(r['发票号']),
+    contractNo: asStr_(r['关联合同号']),
+    date: asYmd_(r['开具日期']),
+    amount: asNum_(r['金额']),
+    currency: asStr_(r['币种']) || 'HKD',
+    direction: asStr_(r['收付方向']),
+    driveLink: asStr_(r['文件链接']),
+    status: asStr_(r['状态']),
+    notes: asStr_(r['备注']),
+    official: false,
+    clientRequestId: asStr_(r['请求号']),
+    fingerprint: asStr_(r['来源指纹']),
+    _row: r._row
+  };
+}
+
 function loadInvoices_() {
   try {
-    return readTable_('08_发票台账').rows.map(function (r) {
-      return {
-        invoiceNo: asStr_(r['发票号']),
-        contractNo: asStr_(r['关联合同号']),
-        date: asYmd_(r['开具日期']),
-        amount: asNum_(r['金额']),
-        currency: asStr_(r['币种']) || 'HKD',
-        direction: asStr_(r['收付方向']),
-        driveLink: asStr_(r['文件链接']),
-        status: asStr_(r['状态']),
-        notes: asStr_(r['备注']),
-        official: false,
-        _row: r._row
-      };
-    });
+    return readTable_('08_发票台账').rows.map(invoiceFromSheetRow_);
   } catch (e) {
     return [];
   }
@@ -986,8 +1077,29 @@ function invoiceRecord_(inv) {
     '收付方向': inv.direction || '',
     '文件链接': '',
     '状态': '模拟/草稿 非正式凭证',
-    '备注': inv.notes || ''
+    '备注': inv.notes || '',
+    '请求号': inv.clientRequestId || '',
+    '来源指纹': inv.fingerprint || ''
   };
+}
+
+function invoiceWriteNo_(rows, inv) {
+  var req = asStr_(inv && inv.clientRequestId);
+  var fp = asStr_(inv && inv.fingerprint);
+  var i;
+  for (i = 0; i < (rows || []).length; i++) {
+    var row = rows[i];
+    var no = asStr_(row['发票号']);
+    if (no && req && asStr_(row['请求号']) === req) return no;
+  }
+  if (fp) {
+    for (i = 0; i < (rows || []).length; i++) {
+      var row2 = rows[i];
+      var no2 = asStr_(row2['发票号']);
+      if (no2 && asStr_(row2['来源指纹']) === fp) return no2;
+    }
+  }
+  return asStr_(inv && inv.invoiceNo);
 }
 
 function loadExports_() {
@@ -1358,21 +1470,23 @@ function monthRecord_(m) {
 
 function upsertPlanRow_(p) {
   var table = readTable_('02_经营计划与法定提醒');
-  var found = table.rows.find(function (r) { return asStr_(r['编号']) === asStr_(p.id) && asStr_(p.id) !== ''; });
-  if (!found) {
-    found = table.rows.find(function (r) {
-      return canonYearMonth_(r['年月']) === canonYearMonth_(p.yearMonth)
-        && asStr_(r['类型（固定/灵活）']) === asStr_(p.type)
-        && asStr_(r['事项']) === asStr_(p.title);
-    });
-  }
+  var target = planUpsertTarget_(table.rows, p);
+  if (target.preserveId && target.id) p.id = target.id;
   var rec = planRecord_(p);
-  if (found) updateRow_('02_经营计划与法定提醒', found._row, rec);
+  rec['编号'] = target.id || p.id || '';
+  if (target.action === 'update' && target.row) updateRow_('02_经营计划与法定提醒', target.row, rec);
   else appendRow_('02_经营计划与法定提醒', rec);
 }
 
 function persist_(store, dirty) {
-  if (testStore_()) return;
+  if (testStore_()) {
+    if (testStore_().__failRejectionPersist) {
+      var persistErr = new Error('模拟被拒底稿写入失败');
+      persistErr.code = 'REJECTION_DATA_FAILED';
+      throw persistErr;
+    }
+    return;
+  }
   dirty = dirty || {};
   if (dirty.yearMonth) dirty.yearMonth = canonYearMonth_(dirty.yearMonth) || dirty.yearMonth;
   ensureKnownHeaders_();
@@ -1400,8 +1514,13 @@ function persist_(store, dirty) {
     });
   }
   if (dirty.invoices) {
+    var invTable = readTable_('08_发票台账');
     (store.invoices || []).forEach(function (inv) {
-      upsertRow_('08_发票台账', '发票号', inv.invoiceNo, invoiceRecord_(inv));
+      var no = invoiceWriteNo_(invTable.rows, inv);
+      if (no) inv.invoiceNo = no;
+      var rec = invoiceRecord_(inv);
+      rec['发票号'] = no || inv.invoiceNo || '';
+      upsertRow_('08_发票台账', '发票号', rec['发票号'], rec);
     });
   }
   if (dirty.month && dirty.yearMonth) {
@@ -1546,6 +1665,11 @@ function findCashByRequest_(store, reqId) {
 function addCashItem_(store, yearMonth, payload) {
   var key = canonYearMonth_(yearMonth);
   if (!key) fail_('年月须为 YYYY-MM，例如 2026-11。', 'BAD_MONTH', 400);
+  if (testStore_() && testStore_().__failBusinessWrite) {
+    var boom = new Error('模拟业务写入异常');
+    boom.code = 'BUSINESS_WRITE_FAILED';
+    throw boom;
+  }
   var replay = findCashByRequest_(store, payload.clientRequestId);
   if (replay) {
     replay.item.idempotentReplay = true;
@@ -1584,12 +1708,11 @@ function addCashItem_(store, yearMonth, payload) {
       return payload.clientRequestId && r.clientRequestId === payload.clientRequestId;
     });
     if (!dupRej) month.rejectedCash.push(rej);
-    var err = new Error(reason);
-    err.code = 'CASH_LIMIT';
-    err.status = 400;
-    err.dirty = { month: true, yearMonth: key };
-    err.audit = { action: '登记现金或第三方收支', target: 'YM:' + key, result: '拒绝', notes: reason };
-    throw err;
+    failAudit_(reason, 'CASH_LIMIT', 400, {
+      action: '登记现金或第三方收支',
+      target: 'YM:' + key,
+      notes: reason
+    }, { month: true, yearMonth: key });
   }
   month.ledgerGenerated = false;
   var item = {
@@ -1647,11 +1770,16 @@ function generateLedger_(store, yearMonth) {
   month.bankBalanceDiff = diffs;
   if (!month.bankBalanced) {
     month.ledgerGenerated = false;
-    fail_(
-      '月结单与银行侧收支轧差不一致，不能生成可继续处理的第一本明细账。差额：' +
-        diffs.map(function (d) { return d.account + ' 计算' + d.computed + ' / 结单' + d.closing + ' / 差' + d.diff; }).join('；'),
+    var balanceDetail = diffs.map(function (d) { return d.account + ' 计算' + d.computed + ' / 结单' + d.closing + ' / 差' + d.diff; }).join('；');
+    failAudit_(
+      '月结单与银行侧收支轧差不一致，不能生成可继续处理的第一本明细账。差额：' + balanceDetail,
       'UNBALANCED',
-      400
+      400,
+      {
+        action: '生成第一本明细账',
+        target: 'YM:' + yearMonth,
+        notes: 'UNBALANCED ' + balanceDetail
+      }
     );
   }
   var previous = (store.ledger || []).filter(function (l) { return l.yearMonth === yearMonth; });
@@ -2096,9 +2224,9 @@ function invoiceCsv_(draft) {
     ['订单', '不存在'],
     ['金额', draft.amount],
     ['币种', draft.currency],
-    ['金额来源', draft.amountSource],
-    ['合同台账金额', draft.sourceAmount.contract],
-    ['收入记录金额', draft.sourceAmount.line == null ? '' : draft.sourceAmount.line],
+    ['金额来源', draft.amountSource || ''],
+    ['合同台账金额', draft.sourceAmount && draft.sourceAmount.contract != null ? draft.sourceAmount.contract : ''],
+    ['收入记录金额', !draft.sourceAmount || draft.sourceAmount.line == null ? '' : draft.sourceAmount.line],
     ['金额是否相同', draft.amountMatch ? '是' : '否，并列两者，不另造第三个数'],
     ['收入记录', draft.lineId || ''],
     ['年月', draft.yearMonth || ''],
@@ -2793,7 +2921,7 @@ function applyAction_(store, action, payload, user, uploaded) {
       return payload.clientRequestId && p.clientRequestId === payload.clientRequestId;
     });
     if (replayPlan) {
-      return { plan: replayPlan, idempotentReplay: true, warnings: incompletePlanWarning_(store), _dirty: { plans: true } };
+      return { plan: replayPlan, idempotentReplay: true, warnings: incompletePlanWarning_(store) };
     }
     store.plans.push(pn);
     log_(actor, '新增计划', 'YM:' + pn.yearMonth, '成功', pn.id);
@@ -2917,13 +3045,7 @@ function applyAction_(store, action, payload, user, uploaded) {
     return { statement: stmt, month: summarizeMonth_(store, payload.yearMonth), _dirty: { month: true, yearMonth: payload.yearMonth, files: true } };
   }
   if (action === 'addCashItem') {
-    var item;
-    try {
-      item = addCashItem_(store, payload.yearMonth, payload);
-    } catch (cashErr) {
-      if (cashErr.audit) log_(actor, cashErr.audit.action, cashErr.audit.target, cashErr.audit.result, cashErr.audit.notes);
-      throw cashErr;
-    }
+    var item = addCashItem_(store, payload.yearMonth, payload);
     if (uploaded) {
       var cfile = saveUpload_(store, uploaded, '现金或第三方凭证', actor, { relatedId: item.id, yearMonth: payload.yearMonth });
       item.fileId = cfile.id;
@@ -3024,7 +3146,9 @@ function applyAction_(store, action, payload, user, uploaded) {
   if (action === 'createInvoiceDraft') {
     var draft = createInvoiceDraft_(store, payload, actor);
     log_(actor, '发票草稿', draft.contractNo, draft.idempotentReplay ? '幂等重放' : '成功', draft.invoiceNo + ' ' + DRAFT_MARK);
-    return { invoice: draft, idempotentReplay: !!draft.idempotentReplay, _dirty: { invoices: true } };
+    var invoiceOut = { invoice: draft, idempotentReplay: !!draft.idempotentReplay };
+    if (!draft.idempotentReplay) invoiceOut._dirty = { invoices: true };
+    return invoiceOut;
   }
   if (action === 'issueOfficialInvoice') issueOfficialInvoice_();
   if (action === 'exportFourStatementsDraft') {
@@ -3150,8 +3274,34 @@ function dispatch_(action, payload, token, uploaded) {
   try {
     result = applyAction_(store, action, payload || {}, user, uploaded);
   } catch (err) {
+    err.rejectionDataStatus = { attempted: false, saved: false, error: '' };
     if (err && err.dirty) {
-      try { persist_(store, err.dirty); } catch (ignore) {}
+      err.rejectionDataStatus.attempted = true;
+      try {
+        persist_(store, err.dirty);
+        err.rejectionDataStatus.saved = true;
+      } catch (persistErr) {
+        err.rejectionDataStatus.saved = false;
+        err.rejectionDataStatus.error = String(persistErr && persistErr.message || persistErr);
+      }
+    }
+    err.auditStatus = { attempted: false, saved: false, error: '' };
+    if (err && err.audit) {
+      err.auditStatus.attempted = true;
+      err.businessStatus = { outcome: '拒绝', written: false };
+      var auditNote = err.audit.notes || String(err.message || '');
+      if (err.rejectionDataStatus.attempted && !err.rejectionDataStatus.saved) {
+        auditNote += ' 被拒底稿未能落库。';
+      }
+      try {
+        log_(user.jobId, err.audit.action, err.audit.target, '拒绝', auditNote);
+        err.auditStatus.saved = true;
+      } catch (auditErr) {
+        err.auditStatus.saved = false;
+        err.auditStatus.error = String(auditErr && auditErr.message || auditErr);
+      }
+    } else {
+      err.businessStatus = { outcome: '未完成', written: false };
     }
     throw err;
   }
@@ -3215,6 +3365,14 @@ var FS_RULES = {
   sheetMonthKey_: sheetMonthKey_,
   openingConfirmed_: openingConfirmed_,
   checkCashLimits_: checkCashLimits_,
+  refusalBody_: refusalBody_,
+  monthRecord_: monthRecord_,
+  planRecord_: planRecord_,
+  planFromSheetRow_: planFromSheetRow_,
+  planUpsertTarget_: planUpsertTarget_,
+  invoiceRecord_: invoiceRecord_,
+  invoiceFromSheetRow_: invoiceFromSheetRow_,
+  invoiceWriteNo_: invoiceWriteNo_,
   assertIsolatedTargets_: assertIsolatedTargets_,
   BUILD_ID: BUILD_ID,
   setTestStore_: setTestStore_
