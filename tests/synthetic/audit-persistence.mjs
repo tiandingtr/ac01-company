@@ -32,6 +32,10 @@ function cashIds(months) {
   return ids;
 }
 
+function refusalRows(mirror) {
+  return (mirror || []).filter((row) => row && row['结果'] === '拒绝' && String(row['动作']) === '登记现金或第三方收支' && String(row['对象']).indexOf('REQ:REQ-1') >= 0);
+}
+
 function run(phase) {
   const store = boot(engine);
   const auth = login(engine, 'AC01-SYN-ADVISOR');
@@ -40,18 +44,22 @@ function run(phase) {
     yearMonth: '2026-01', date: '2026-01-15', desc: 'SYN', direction: '收入', amount: 2000.01, currency: 'HKD', clientRequestId: 'REQ-1'
   });
   const calls = store.__persistCalls || 0;
-  const mirror = JSON.parse(JSON.stringify(store.__sheetMirror || { months: {} }));
+  const mirror = JSON.parse(JSON.stringify(store.__logMirror || []));
+  const rows = refusalRows(mirror);
+  const liveCash = cashIds(store.months);
   store.months = {};
   store.logs = [];
   delete store.__sheetPhase;
   return {
     response,
     calls,
-    diskIds: rejectedIds(mirror.months),
-    diskAmounts: Object.keys(mirror.months || {}).reduce((all, key) => {
-      return all.concat((mirror.months[key].rejectedCash || []).map((item) => item.amount));
-    }, []),
-    cashIds: cashIds(mirror.months)
+    diskIds: rows.map((row) => 'REQ-1'),
+    diskAmounts: rows.map((row) => {
+      const found = String(row['备注'] || '').match(/金额=([0-9.]+)/);
+      return found ? Number(found[1]) : null;
+    }),
+    cashIds: liveCash,
+    columns: rows[0] || null
   };
 }
 
@@ -108,10 +116,14 @@ const callsAfterFirst = againStore.__persistCalls || 0;
 const second = call(engine, againAuth.token, 'addCashItem', {
   yearMonth: '2026-01', date: '2026-01-16', desc: 'OTHER', direction: '支出', amount: 10, currency: 'HKD', clientRequestId: 'REQ-1'
 });
-const mirror = JSON.parse(JSON.stringify(againStore.__sheetMirror || { months: {} }));
-const stored = rejectedIds(mirror.months);
-const amounts = Object.keys(mirror.months).reduce((all, key) => all.concat((mirror.months[key].rejectedCash || []).map((item) => item.amount)), []);
-check('same-request-different-payload-keeps-first-record', first.recordState === '服务已接受且成功记录' && second.recordState === '拒绝已留痕' && second.mayReplay === false && stored.length === 1 && amounts.length === 1 && amounts[0] === 2000.01 && cashIds(mirror.months).length === 0 && (againStore.__persistCalls || 0) === callsAfterFirst, { first: first.recordState, second: second.recordState, stored, amounts, calls: againStore.__persistCalls });
+const mirror = JSON.parse(JSON.stringify(againStore.__logMirror || []));
+const stored = refusalRows(mirror);
+const amounts = stored.map((row) => {
+  const found = String(row['备注'] || '').match(/金额=([0-9.]+)/);
+  return found ? Number(found[1]) : null;
+});
+const keptCash = cashIds(againStore.months);
+check('same-request-different-payload-keeps-first-record', first.recordState === '服务已接受且成功记录' && second.recordState === '拒绝已留痕' && second.mayReplay === false && stored.length === 1 && stored[0]['结果'] === '拒绝' && amounts.length === 1 && amounts[0] === 2000.01 && keptCash.length === 0 && (againStore.__persistCalls || 0) === callsAfterFirst, { first: first.recordState, second: second.recordState, stored: stored.length, amounts, calls: againStore.__persistCalls });
 
 function lostUpdate() {
   const base = { rejectedCash: [] };
@@ -129,7 +141,7 @@ console.log('MATRIX');
 rows.forEach((row) => {
   console.log([row.id, row.phase, row.disk, row.response, row.reloaded, 'mayWrite=' + row.mayWrite, 'calls=' + row.calls].join(' | '));
 });
-console.log(JSON.stringify({ passed: failures.length === 0, failed: failures.length, model: 'offline-sheet-mirror-not-google-sheets', liveWrite: false }));
+console.log(JSON.stringify({ passed: failures.length === 0, failed: failures.length, model: 'offline-log-mirror-not-google-sheets', liveWrite: false, singleAppendPartialMeansUnreadableRow: true }));
 if (failures.length) {
   console.error(JSON.stringify(failures, null, 2));
   process.exit(1);

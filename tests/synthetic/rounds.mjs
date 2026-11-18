@@ -58,9 +58,15 @@ const plan = call(engine, advisor.token, 'savePlan', {
 });
 rec('R2', 'SYN-R2-PLAN-MONTH', { yearMonth: '2026-11-01' }, '2026-11', plan.data && plan.data.plan.yearMonth, plan.ok && plan.data.plan.yearMonth === '2026-11');
 const planReplay = call(engine, advisor.token, 'savePlan', {
-  yearMonth: '2026-11', type: '固定', title: 'SYN_PLAN_DUP', clientRequestId: 'PL-REQ-1'
+  yearMonth: '2026-11-01', type: '固定', title: 'SYN_PLAN', planDate: '2026-11-30', owner: 'SYN', clientRequestId: 'PL-REQ-1'
 });
 rec('R2', 'SYN-R2-PLAN-IDEMPOTENT', { clientRequestId: 'PL-REQ-1' }, 'same id', planReplay.data && planReplay.data.plan.id, planReplay.ok && planReplay.data.idempotentReplay === true && planReplay.data.plan.id === plan.data.plan.id);
+const planClash = call(engine, advisor.token, 'savePlan', {
+  yearMonth: '2026-11', type: '固定', title: 'SYN_PLAN_DUP', clientRequestId: 'PL-REQ-1'
+});
+const planAfterClash = call(engine, advisor.token, 'getPlans', {});
+const keptPlan = (planAfterClash.data.plans || []).filter((p) => p.clientRequestId === 'PL-REQ-1');
+rec('R2', 'SYN-R2-PLAN-PAYLOAD', { title: 'SYN_PLAN_DUP' }, 'reject and keep original', planClash.code, planClash.ok === false && planClash.code === 'PAYLOAD_MISMATCH' && keptPlan.length === 1 && keptPlan[0].id === plan.data.plan.id && keptPlan[0].title === 'SYN_PLAN');
 const plans = call(engine, advisor.token, 'getPlans', {});
 rec('R2', 'SYN-R2-PLAN-READ', { title: 'SYN_PLAN' }, 'present once', (plans.data.plans || []).filter((p) => p.clientRequestId === 'PL-REQ-1').length, (plans.data.plans || []).filter((p) => p.clientRequestId === 'PL-REQ-1').length === 1);
 

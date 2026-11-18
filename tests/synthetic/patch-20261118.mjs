@@ -57,7 +57,21 @@ const monthItems = (monthView.data.month && monthView.data.month.cashItems) || [
 check('cash-month-001-rejected', monthOver.ok === false && monthOver.code === 'CASH_LIMIT', monthOver);
 check('cash-month-001-not-listed', monthItems.every((item) => item.clientRequestId !== 'CASH-MONTH-001') && monthItems.length === 10, monthItems.length);
 check('cash-month-001-rejected-row', (monthView.data.rejectedCash || []).some((r) => r.clientRequestId === 'CASH-MONTH-001' && Number(r.amount) === 0.01), monthView.data.rejectedCash);
-check('cash-month-001-one-durable-record', monthOver.ok === false && monthOver.recordState === '服务已接受且成功记录' && monthOver.mayReplay === false && monthOver.audit && monthOver.audit.owner === 'rejectedCash' && monthOver.audit.saved === true && monthOver.business.written === false && String(monthOver.error).indexOf('成功') < 0, monthOver);
+const monthRefuseLogs = (monthLogs.data.logs || []).filter((l) => l.action === '登记现金或第三方收支' && l.result === '拒绝' && String(l.target).indexOf('CASH-MONTH-001') >= 0);
+const monthRefuseRow = monthRefuseLogs[0] ? engine.operationLogRecord_(monthRefuseLogs[0]) : null;
+check('cash-month-001-one-durable-record', monthOver.ok === false && monthOver.recordState === '服务已接受且成功记录' && monthOver.mayReplay === false && monthOver.audit && monthOver.audit.owner === 'operationLog' && monthOver.audit.saved === true && monthOver.business.written === false && String(monthOver.error).indexOf('成功') < 0, monthOver);
+check('cash-month-001-log-is-six-column-reject', monthRefuseLogs.length === 1 && monthRefuseRow && monthRefuseRow['结果'] === '拒绝' && String(monthRefuseRow['备注']).indexOf('20000.01') >= 0 && String(monthRefuseRow['操作人']) && String(monthRefuseRow['时间']) && !monthRefuseLogs.some((l) => l.result === '成功'), monthRefuseRow);
+const savedRejected = (store.months['2026-06'].rejectedCash || []).slice();
+store.months['2026-06'].rejectedCash = [];
+const fromLogsOnly = call(engine, advisor.token, 'getMonth', { yearMonth: '2026-06' });
+const logOnly = (fromLogsOnly.data.rejectedCash || []).find((r) => r.clientRequestId === 'CASH-MONTH-001');
+check('rejection-log-survives-without-month-json', !!logOnly && Number(logOnly.amount) === 0.01 && fromLogsOnly.data.month.cashItems.every((item) => item.clientRequestId !== 'CASH-MONTH-001'), logOnly);
+store.months['2026-06'].rejectedCash = savedRejected;
+const monthBackup = store.months['2026-06'];
+delete store.months['2026-06'];
+const noMonthRow = call(engine, advisor.token, 'getMonth', { yearMonth: '2026-06' });
+check('rejection-log-visible-without-month-row', (noMonthRow.data.rejectedCash || []).some((r) => r.clientRequestId === 'CASH-MONTH-001' && Number(r.amount) === 0.01), noMonthRow.data && noMonthRow.data.rejectedCash);
+store.months['2026-06'] = monthBackup;
 
 const unbalanced = call(engine, advisor.token, 'addStatement', {
   yearMonth: '2026-05', accountName: 'SYN-BANK', accountId: 'SYN-BANK-PATCH', opening: 0, closing: 1, currency: 'HKD',
@@ -90,6 +104,10 @@ const keptNo = engine.invoiceWriteNo_([
   { '发票号': 'DRAFT-KEPT', '请求号': 'INV-PATCH-1', '来源指纹': reloaded.fingerprint }
 ], { invoiceNo: 'DRAFT-NEW', clientRequestId: 'INV-PATCH-1', fingerprint: 'other' });
 check('invoice-write-preserves-current-number', keptNo === 'DRAFT-KEPT', keptNo);
+const draftClash = call(engine, advisor.token, 'createInvoiceDraft', {
+  contractNo: 'SYN-PATCH-C', fileId: file.data.file.id, clientRequestId: 'INV-PATCH-1'
+});
+check('invoice-same-request-different-payload-rejected', draftClash.ok === false && draftClash.code === 'PAYLOAD_MISMATCH' && store.invoices.length === 1 && store.invoices[0].invoiceNo === draftNo, draftClash);
 
 const matchedPlan = Rules.matchSavedWrite('plan', { plans: [{ id: originalId, clientRequestId: 'PL-PATCH-1', yearMonth: '2026-11' }] }, 'PL-PATCH-1');
 const missedPlan = Rules.matchSavedWrite('plan', { plans: [{ id: 'PL-OTHER', clientRequestId: 'OTHER' }] }, 'PL-PATCH-1');
@@ -128,7 +146,8 @@ const dataFail = call(engine, advisor.token, 'addCashItem', {
   yearMonth: '2026-03', date: '2026-03-02', desc: 'SYN_DATA_FAIL', direction: '收入', amount: 2000.01, currency: 'HKD', clientRequestId: 'CASH-DATA-FAIL'
 });
 delete store.__failRejectionPersist;
-check('rejection-data-failure-is-separate', dataFail.ok === false && dataFail.recordState === '审计失败未闭环' && dataFail.mayReplay === false && dataFail.business.written === false && dataFail.rejectionData.attempted === true && dataFail.rejectionData.saved === false && dataFail.audit.saved === false && dataFail.audit.ambiguous === false && (store.__persistCalls || 0) === callsBefore + 1 && String(dataFail.error).indexOf('成功') < 0, dataFail);
+const dataFailListed = !!(((store.months['2026-03'] || {}).cashItems || []).some((item) => item.clientRequestId === 'CASH-DATA-FAIL'));
+check('rejection-data-failure-is-separate', dataFail.ok === false && dataFail.recordState === '审计失败未闭环' && dataFail.mayReplay === false && dataFail.business.written === false && dataFail.audit.owner === 'operationLog' && dataFail.audit.attempted === true && dataFail.audit.saved === false && dataFail.audit.ambiguous === false && dataFailListed === false && (store.__persistCalls || 0) === callsBefore + 1 && String(dataFail.error).indexOf('成功') < 0, dataFail);
 check('rejection-data-failure-does-not-write-followup-log', (store.logs || []).every((l) => String(l.notes || '').indexOf('被拒底稿未能落库') < 0), store.logs);
 
 store.__failBusinessWrite = true;
@@ -138,6 +157,35 @@ const boom = call(engine, advisor.token, 'addCashItem', {
 delete store.__failBusinessWrite;
 const boomListed = !!(((store.months['2026-02'] || {}).cashItems || []).some((item) => item.clientRequestId === 'CASH-BOOM'));
 check('business-exception-not-success', boom.ok === false && boom.code === 'BUSINESS_WRITE_FAILED' && boom.business.outcome === '未完成' && boom.business.written == null && boom.audit.attempted === false && boom.audit.saved === false && boomListed === false && String(boom.error).indexOf('成功') < 0 && String(boom.error).indexOf('审计日志已写入') < 0, boom);
+
+const cashOk = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2026-04', date: '2026-04-02', desc: 'SYN_KEEP', direction: '收入', amount: 20, currency: 'HKD', clientRequestId: 'CASH-KEEP'
+});
+const cashKeepId = cashOk.data && cashOk.data.item && cashOk.data.item.id;
+const cashSame = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2026-04', date: '2026-04-02', desc: 'SYN_KEEP', direction: '收入', amount: 20, currency: 'HKD', clientRequestId: 'CASH-KEEP'
+});
+const cashClash = call(engine, advisor.token, 'addCashItem', {
+  yearMonth: '2026-04', date: '2026-04-03', desc: 'SYN_OTHER', direction: '支出', amount: 21, currency: 'HKD', clientRequestId: 'CASH-KEEP'
+});
+const cashKept = ((store.months['2026-04'] || {}).cashItems || []).filter((item) => item.clientRequestId === 'CASH-KEEP');
+const cashSuccessLogs = (store.logs || []).filter((l) => l.action === '登记现金或第三方收支' && l.result === '成功' && String(l.notes).indexOf(cashKeepId) >= 0);
+check('cash-same-request-same-payload-keeps-id', cashOk.ok && cashSame.ok && cashSame.data.idempotentReplay === true && cashSame.data.item.id === cashKeepId && cashKept.length === 1 && cashSuccessLogs.length === 1, { cashKeepId, same: cashSame.data && cashSame.data.item && cashSame.data.item.id, logs: cashSuccessLogs.length });
+check('cash-same-request-different-payload-rejected', cashClash.ok === false && cashClash.code === 'PAYLOAD_MISMATCH' && cashKept.length === 1 && cashKept[0].id === cashKeepId && cashKept[0].amount === 20, cashClash);
+
+const planClash = call(engine, advisor.token, 'savePlan', {
+  yearMonth: '2026-11', type: '固定', title: 'SYN_PATCH_OTHER', clientRequestId: 'PL-PATCH-1'
+});
+const planLogs = (store.logs || []).filter((l) => l.action === '新增计划' && String(l.target).indexOf('PL-PATCH-1') >= 0);
+check('plan-same-request-different-payload-rejected', planClash.ok === false && planClash.code === 'PAYLOAD_MISMATCH' && store.plans.length === 1 && store.plans[0].id === originalId && store.plans[0].title === 'SYN_PATCH_PLAN' && planLogs.length === 1 && planLogs[0].result === '拒绝', { planClash, planLogs, id: store.plans[0] && store.plans[0].id });
+
+store.__failPersist = true;
+const lost = call(engine, advisor.token, 'savePlan', {
+  yearMonth: '2026-09', type: '固定', title: 'SYN_LOST_RETURN', planDate: '2026-09-01', owner: 'SYN', clientRequestId: 'PL-LOST'
+});
+delete store.__failPersist;
+const lostSuccess = (store.logs || []).filter((l) => l.result === '成功' && String(l.notes).indexOf('SYN_LOST_RETURN') >= 0 || (l.action === '新增计划' && l.result === '成功' && String(l.target).indexOf('2026-09') >= 0));
+check('persist-interrupt-does-not-log-success', lost.ok === false && lost.recordState === '无法证明是否收到' && lost.mayReplay === false && lostSuccess.length === 0, { lost, lostSuccess });
 
 function fileSha(rel) {
   return crypto.createHash('sha256').update(fs.readFileSync(path.join(root, rel))).digest('hex');
@@ -149,7 +197,7 @@ const pairs = [
 ];
 const sourceCode = fileSha('gas/release/Code.js');
 const packedCode = fileSha('dist/ac01-gas/Code.js');
-check('dist-gas-left-at-previous-snapshot', sourceCode !== packedCode && packedCode === 'a2694ebd35201f60e4857530a5cd50f94a076f0d4879b367ccd1a3b2209f6cfa', { packedChanged: packedCode === sourceCode });
+check('dist-gas-matches-release', sourceCode === packedCode, { sourceCode, packedCode });
 const sums = JSON.parse(fs.readFileSync(path.join(root, 'dist/SHA256SUMS.json'), 'utf8'));
 pairs.forEach(function (pair) {
   const same = fileSha(pair[0]) === fileSha(pair[1]);
