@@ -77,6 +77,15 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  /* Official preview never posts formal books. Prerequisites are ignored. */
+  function previewFormalPostClosed() {
+    return {
+      allowed: false,
+      code: 'PREVIEW_FORMAL_POST_CLOSED',
+      reasons: ['正式预览禁止财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。']
+    };
+  }
+
   function completionDecision(state) {
     state = state || {};
     var reasons = [];
@@ -178,6 +187,7 @@
     checkCashAmount: checkCashAmount,
     checkCashMonth: checkCashMonth,
     formalPostDecision: formalPostDecision,
+    previewFormalPostClosed: previewFormalPostClosed,
     completionDecision: completionDecision,
     identityDecision: identityDecision,
     describeRelease: describeRelease

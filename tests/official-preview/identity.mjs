@@ -155,6 +155,25 @@ assert.equal(app.includes('simulated-test'), false);
 assert.equal(app.includes(OLD_BUILD), false);
 assert.ok(app.includes('对客正式合同生成已关闭'));
 assert.ok(app.includes('模拟/草稿 非正式凭证'));
+assert.equal(/api\(\s*['"]postFourStatements['"]/.test(app), false);
+assert.equal(/api\(\s*['"]generateOfficialContract['"]/.test(app), false);
+assert.ok(app.includes('previewFormalPostClosed()'));
+assert.ok(app.includes('id="post-four" type="button" disabled aria-disabled="true"'));
+assert.equal(app.includes('此按钮会请求接口写入正式四套账'), false);
+assert.equal(app.includes('接口已接受正式定稿'), false);
+const readyBooks = {
+  openingConfirmed: true,
+  ledgerGenerated: true,
+  bankBalanced: true,
+  completionConfirmed: true,
+  unfinished: 0
+};
+assert.equal(rules.formalPostDecision(readyBooks).allowed, true, 'book prerequisites alone would open the old gate');
+const closed = rules.previewFormalPostClosed(readyBooks);
+assert.equal(closed.allowed, false);
+assert.equal(closed.code, 'PREVIEW_FORMAL_POST_CLOSED');
+assert.ok(closed.reasons[0].includes('正式预览禁止财务定稿'));
+assert.equal(rules.previewFormalPostClosed().allowed, false);
 const boot = app.slice(app.indexOf('async function boot'), app.indexOf('document.getElementById(\'logout\')'));
 const rejectAt = boot.indexOf('if (!decision.ok)');
 const renderAt = boot.indexOf('await render()');
@@ -175,5 +194,6 @@ console.log(JSON.stringify({
   productionData: expected.productionData,
   exec: NEW_EXEC,
   matched: matched.reasons,
+  formalPostClosed: closed.code,
   historicalReleaseUntouched: revision.buildId
 }, null, 2));

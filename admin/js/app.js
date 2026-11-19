@@ -132,8 +132,8 @@
       const gate = document.getElementById('gate-note');
       if (gate) {
         gate.textContent = data.openingConfirmed
-          ? '正式预览，不是真实运营。期初已确认。正式定稿仍须完成配平、完成页确认，且由接口放行。对客正式合同生成已关闭。'
-          : '正式预览，不是真实运营。期初待确认，禁止正式记账。对客正式合同生成已关闭。';
+          ? '正式预览，不是真实运营。期初已确认。财务定稿已关闭，不因配平或完成页放行。对客正式合同生成已关闭。'
+          : '正式预览，不是真实运营。期初待确认，禁止正式记账。财务定稿已关闭。对客正式合同生成已关闭。';
       }
       await render();
     } catch (e) {
@@ -507,7 +507,7 @@
         ${m.posted ? badge('已定稿') : badge('未定稿')}
         ${d.openingConfirmed ? badge('期初已确认') : badge('期初未确认')}
       </div>
-      ${alertBox('info', '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。期初未确认时，接口拒绝正式定稿。')}
+      ${alertBox('info', '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。正式预览不提供财务定稿。')}
       <div class="tabs">
         ${tabBtn('statements', '1. 月结单与现金')}
         ${tabBtn('ledger', '2. 第一本明细账')}
@@ -622,11 +622,11 @@
       bankBalanced: !!d.month.bankBalanced,
       unfinished: unfinished
     });
-    const confirmBtn = d.month.completionConfirmed ? '' : `<button class="btn amber" id="confirm-done" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">确认完成页</button><p class="hint">${decision.allowed ? '确认后仍不能直接定稿；期初未确认时期初禁令继续有效。' : E(decision.reasons.join(' '))}</p>`;
+    const confirmBtn = d.month.completionConfirmed ? '' : `<button class="btn amber" id="confirm-done" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">确认完成页</button><p class="hint">${decision.allowed ? '确认后仍不能定稿。正式预览不写入正式四套账。' : E(decision.reasons.join(' '))}</p>`;
     return `
       ${!d.month.ledgerGenerated ? alertBox('warn', '尚未生成第一本明细账，不能进入完成页。') : ''}
       ${d.month.ledgerGenerated && !d.month.bankBalanced ? alertBox('danger', '银行侧与月结单对不上，不能确认完成页，也不能定稿。') : ''}
-      ${unfinished ? alertBox('danger', `尚有 ${unfinished} 条未处理，不能确认完成页。`) : (decision.allowed ? alertBox('ok', '三类均已列明。确认后仍须满足期初确认才能正式定稿。') : '')}
+      ${unfinished ? alertBox('danger', `尚有 ${unfinished} 条未处理，不能确认完成页。`) : (decision.allowed ? alertBox('ok', '三类均已列明。正式预览仍禁止财务定稿。') : '')}
       ${d.month.completionConfirmed ? alertBox('ok', '本月完成页已于 ' + E(d.month.completionConfirmedAt || '') + ' 确认。') : ''}
       <div class="card" style="margin-bottom:12px"><h3>已附原件（${(g.已附原件||[]).length}）</h3>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.已附原件||[])}</tbody></table></div>
@@ -639,14 +639,9 @@
   }
 
   function renderFourTab(d) {
-    const unfinished = ((d.groups && d.groups['未处理']) || []).length;
-    const decision = Rules.formalPostDecision({
-      openingConfirmed: d.openingConfirmed === true,
-      ledgerGenerated: !!d.month.ledgerGenerated,
-      bankBalanced: !!d.month.bankBalanced,
-      completionConfirmed: !!d.month.completionConfirmed,
-      unfinished: unfinished
-    });
+    const postClosed = (Rules && Rules.previewFormalPostClosed)
+      ? Rules.previewFormalPostClosed()
+      : { allowed: false, reasons: ['正式预览禁止财务定稿。'] };
     const groups = ['利润表', '资产负债表', '现金流量表', '流水明细'];
     const blocks = groups.map((t) => {
       const rows = (d.four || []).filter((r) => r.type === t);
@@ -657,12 +652,13 @@
       </div>`;
     }).join('');
     const previewOk = d.month.ledgerGenerated && d.month.bankBalanced && d.month.completionConfirmed && !d.month.posted;
+    const postNote = E(postClosed.reasons.join(' '));
     return `
-      ${d.month.posted ? alertBox('ok', '本月已定稿。含暂记往来的项目已在表内标明，不作为已齐备的审计附件，直至取得真凭证并完成调整。') : alertBox('info', decision.allowed ? '本月工作底稿条件已齐，且期初已确认。定稿仍由接口再次校验。' : decision.reasons.join(' '))}
+      ${d.month.posted ? alertBox('ok', '本月已有定稿记录。正式预览不能再次写入正式四套账。含暂记往来的项目已在表内标明，不作为已齐备的审计附件。') : alertBox('info', postNote)}
       ${previewOk ? '<button class="btn teal" id="preview-four" type="button">预览四套账（不定稿，不写入）</button>' : '<button class="btn teal" id="preview-four" type="button" disabled aria-disabled="true">预览四套账（不定稿，不写入）</button>'}
       ${previewOk ? '<button class="btn ghost" id="export-four" type="button">下载四套账草稿 CSV</button>' : '<button class="btn ghost" id="export-four" type="button" disabled aria-disabled="true">下载四套账草稿 CSV</button>'}
-      ${d.month.posted ? '' : `<button class="btn amber" id="post-four" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">定稿并写入正式四套账</button>`}
-      <p class="hint">${d.month.posted ? '' : E(decision.allowed ? '此按钮会请求接口写入正式四套账。' : decision.reasons.join(' '))}</p>
+      <button class="btn amber" id="post-four" type="button" disabled aria-disabled="true">定稿并写入正式四套账</button>
+      <p class="hint" id="post-four-note">${postNote}</p>
       <div style="margin-top:16px">${blocks}</div>`;
   }
 
@@ -844,24 +840,14 @@
       });
     });
     const post = document.getElementById('post-four');
-    if (post) post.addEventListener('click', () => {
-      const unfinished = ((d.groups && d.groups['未处理']) || []).length;
-      const decision = Rules.formalPostDecision({
-        openingConfirmed: d.openingConfirmed === true,
-        ledgerGenerated: !!d.month.ledgerGenerated,
-        bankBalanced: !!d.month.bankBalanced,
-        completionConfirmed: !!d.month.completionConfirmed,
-        unfinished: unfinished
-      });
-      if (post.disabled || !decision.allowed) {
-        showStatus(decision.reasons.join(' ') || '正式定稿未放行。', 'danger');
-        return;
-      }
-      withSubmit(post, async () => {
-        await api('postFourStatements', { yearMonth: selectedMonth, __timeoutMs: 20000 });
-        showStatus('接口已接受正式定稿。', 'ok');
-        await render();
-      });
+    if (post) post.addEventListener('click', (event) => {
+      event.preventDefault();
+      post.disabled = true;
+      post.setAttribute('aria-disabled', 'true');
+      const closed = (Rules && Rules.previewFormalPostClosed)
+        ? Rules.previewFormalPostClosed()
+        : { allowed: false, reasons: ['正式预览禁止财务定稿。'] };
+      showStatus(closed.reasons.join(' ') || '正式预览禁止财务定稿。', 'danger');
     });
   }
 

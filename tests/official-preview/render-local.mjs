@@ -1,19 +1,67 @@
 /**
  * Local render of the admin preview. Mocks `me` in the browser.
  * Requests to script.google.com are answered locally and are never continued.
- * Hosts for the live exec are also mapped to 127.0.0.1 so a missed intercept cannot leave the machine.
+ * Those hosts are also mapped to 127.0.0.1 so a missed intercept cannot leave the machine.
+ * Browser and output paths come from the environment, then from common install locations.
  */
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const puppeteer = require('/tmp/puppeteer-core/node_modules/puppeteer-core');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const outDir = '/opt/cursor/artifacts';
-fs.mkdirSync(outDir, { recursive: true });
+
+function loadPuppeteer() {
+  const specifiers = [];
+  if (process.env.PUPPETEER_MODULE) specifiers.push(process.env.PUPPETEER_MODULE);
+  specifiers.push('puppeteer-core', 'puppeteer');
+  const cached = path.join(os.tmpdir(), 'puppeteer-core', 'node_modules', 'puppeteer-core');
+  if (fs.existsSync(path.join(cached, 'package.json'))) specifiers.push(cached);
+  const failures = [];
+  for (const spec of specifiers) {
+    try { return require(spec); } catch (err) { failures.push(spec + ': ' + err.message); }
+  }
+  throw new Error('Cannot load puppeteer-core. Set PUPPETEER_MODULE. Tried ' + failures.join(' | '));
+}
+
+function resolveChrome() {
+  const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
+  if (fromEnv) {
+    if (!fs.existsSync(fromEnv)) throw new Error('Browser executable not found: ' + fromEnv);
+    return fromEnv;
+  }
+  const names = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'];
+  const dirs = [path.join(os.homedir(), '.local', 'bin'), '/usr/local/bin', '/usr/bin', '/opt/google/chrome'];
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = path.join(dir, name);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+  throw new Error('Chrome not found. Set PUPPETEER_EXECUTABLE_PATH.');
+}
+
+function resolveOutDirs() {
+  const dirs = [];
+  dirs.push(process.env.AC01_ARTIFACT_DIR || path.join(os.tmpdir(), 'ac01-official-preview-artifacts'));
+  const review = process.env.AC01_REVIEW_ARTIFACT_DIR;
+  if (review) dirs.push(review);
+  else if (fs.existsSync('/opt/cursor/artifacts')) dirs.push('/opt/cursor/artifacts');
+  const unique = [];
+  for (const dir of dirs) {
+    const abs = path.resolve(dir);
+    if (!unique.includes(abs)) unique.push(abs);
+    fs.mkdirSync(abs, { recursive: true });
+  }
+  return unique;
+}
+
+const puppeteer = loadPuppeteer();
+const chromePath = resolveChrome();
+const outDirs = resolveOutDirs();
 
 const BUILD = 'ac01-official-preview-20261119';
 const MODE = 'official-preview';
@@ -51,12 +99,41 @@ function mePayload() {
     base.release.buildId = base.buildId;
     base.release.dataMode = base.dataMode;
   }
+  if (mode === 'finance-ready') base.openingConfirmed = true;
   return base;
+}
+
+function readyMonth() {
+  return {
+    ok: true,
+    data: {
+      openingConfirmed: true,
+      months: ['2026-11'],
+      month: {
+        yearMonth: '2026-11',
+        deadline: '2026-12-07',
+        pastDeadline: false,
+        ledgerGenerated: true,
+        bankBalanced: true,
+        completionConfirmed: true,
+        posted: false,
+        cashItems: [],
+        statements: []
+      },
+      groups: { '未处理': [], '已附原件': [], '免原件': [], '暂记往来': [] },
+      lines: [],
+      files: [],
+      four: [],
+      rejectedCash: []
+    }
+  };
 }
 
 function answer(action) {
   if (action === 'me') return { ok: true, data: mePayload() };
-  if (mode !== 'match') return { ok: false, error: 'rejected identity must not read business data', code: 'TEST_BLOCK' };
+  if (mode === 'production' || mode === 'old') {
+    return { ok: false, error: 'rejected identity must not read business data', code: 'TEST_BLOCK' };
+  }
   if (action === 'getDashboard') {
     return {
       ok: true,
@@ -69,9 +146,13 @@ function answer(action) {
         pendingDocs: 0,
         picsPending: 0,
         contracts: [],
-        openingConfirmed: false
+        openingConfirmed: mode === 'finance-ready'
       }
     };
+  }
+  if (mode === 'finance-ready' && action === 'getMonth') return readyMonth();
+  if (mode === 'finance-ready' && action === 'getContracts') {
+    return { ok: true, data: { contracts: [], invoices: [], files: [] } };
   }
   return { ok: false, error: 'this local render does not perform ' + action, code: 'TEST_BLOCK' };
 }
@@ -109,7 +190,7 @@ const port = server.address().port;
 const base = 'http://127.0.0.1:' + port;
 
 const browser = await puppeteer.launch({
-  executablePath: '/usr/local/bin/google-chrome',
+  executablePath: chromePath,
   headless: true,
   args: [
     '--no-sandbox',
@@ -119,9 +200,10 @@ const browser = await puppeteer.launch({
 });
 
 async function shot(page, name) {
-  const file = path.join(outDir, name);
-  await page.screenshot({ path: file, fullPage: true });
-  return file;
+  const primary = path.join(outDirs[0], name);
+  await page.screenshot({ path: primary, fullPage: true });
+  for (const dir of outDirs.slice(1)) fs.copyFileSync(primary, path.join(dir, name));
+  return outDirs.length > 1 ? path.join(outDirs[outDirs.length - 1], name) : primary;
 }
 
 async function openShell(page, nextMode) {
@@ -211,8 +293,8 @@ try {
   if (!matched.marker.includes(BUILD) || !matched.marker.includes(MODE) || !matched.marker.includes('正式预览')) {
     throw new Error('marker did not accept the official preview: ' + matched.marker);
   }
-  if (!matched.banner.includes('不是真实运营') || !matched.gate.includes('不是真实运营')) {
-    throw new Error('shell lost the preview label');
+  if (!matched.banner.includes('不是真实运营') || !matched.gate.includes('不是真实运营') || !matched.gate.includes('财务定稿已关闭')) {
+    throw new Error('shell lost the preview or formal-post closure: ' + matched.gate);
   }
   if (!matched.view.includes('内部看板')) throw new Error('matched shell did not render the local dashboard');
   summary.shots.push(await shot(page, 'ac01-preview-shell-match.png'));
@@ -256,6 +338,47 @@ try {
     throw new Error('old build continued into a business call: ' + JSON.stringify(calls));
   }
 
+  await openShell(page, 'finance-ready');
+  await page.click('#nav a[data-view="finance"]');
+  await page.waitForSelector('[data-tab="four"]');
+  await page.click('[data-tab="four"]');
+  await page.waitForSelector('#post-four');
+  const postUi = await page.$eval('#post-four', (btn) => ({
+    disabled: btn.disabled,
+    aria: btn.getAttribute('aria-disabled'),
+    note: document.querySelector('#post-four-note').textContent
+  }));
+  if (!postUi.disabled || postUi.aria !== 'true' || !postUi.note.includes('正式预览禁止财务定稿')) {
+    throw new Error('formal post control was enabled: ' + JSON.stringify(postUi));
+  }
+  await page.$eval('#post-four', (btn) => {
+    btn.disabled = false;
+    btn.removeAttribute('disabled');
+    btn.setAttribute('aria-disabled', 'false');
+    btn.click();
+  });
+  await page.waitForFunction(() => {
+    const status = document.querySelector('#status');
+    return status && status.className.includes('danger') && status.textContent.includes('正式预览禁止财务定稿');
+  });
+  const forced = await page.$eval('#post-four', (btn) => btn.disabled);
+  if (!forced) throw new Error('handler left the formal-post button enabled');
+  if (calls.some((call) => call.action === 'postFourStatements')) {
+    throw new Error('preview issued postFourStatements: ' + JSON.stringify(calls));
+  }
+  summary.shots.push(await shot(page, 'ac01-preview-formal-post-closed.png'));
+
+  await page.click('#nav a[data-view="contracts"]');
+  await page.waitForFunction(() => {
+    const text = document.querySelector('#view').innerText;
+    return text.includes('对客正式合同生成入口已关闭') && text.includes('生成正式合同文本') && text.includes('不可用');
+  });
+  if (calls.some((call) => call.action === 'generateOfficialContract' || call.action === 'postFourStatements')) {
+    throw new Error('preview issued a closed write: ' + JSON.stringify(calls));
+  }
+  summary.shots.push(await shot(page, 'ac01-preview-contract-closed.png'));
+
+  summary.runtime = { chrome: chromePath, outDirs };
   summary.calls = calls.slice();
   summary.ok = true;
   console.log(JSON.stringify(summary, null, 2));
