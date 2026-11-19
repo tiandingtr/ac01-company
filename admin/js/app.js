@@ -5,6 +5,8 @@
   const titleEl = document.getElementById('title');
   const whoEl = document.getElementById('who');
   let me = null;
+  let releaseAccepted = false;
+  const RELEASE_REJECTED = '已拒绝：接口身份与本页正式预览契约不一致。错版、错误环境或生产数据都不会继续读取业务数据。';
   let financeTab = 'statements';
   let selectedMonth = '';
   let asOf = '';
@@ -97,31 +99,41 @@
     return `<div class="alert ${type}">${html}</div>`;
   }
 
+  function applyReleaseMarker(data, decision) {
+    const marker = document.getElementById('build-marker');
+    if (!marker) return;
+    const head = (data && data.buildId || '未返回') + ' · ' + (data && data.dataMode || '未返回') + ' · ' + (data && data.productionData === false ? '非生产数据' : 'productionData 不是 false');
+    marker.textContent = decision.ok ? (head + ' · 正式预览') : (head + ' · 已拒绝');
+  }
+
   async function boot() {
     try {
       const data = await api('me');
-      me = data.user;
-      asOf = data.asOf || '';
-      whoEl.textContent = `${me.displayName} · ${me.role} · ${me.jobId}`;
-      const gate = document.getElementById('gate-note');
-      if (gate) {
-        gate.textContent = data.openingConfirmed
-          ? '期初已确认。正式定稿仍须完成配平、完成页确认，且由接口放行。对客正式合同生成已关闭。'
-          : '期初待确认，禁止正式记账。对客正式合同生成已关闭。';
-      }
-      const marker = document.getElementById('build-marker');
-      const pageBuild = (window.AC01_BUILD && window.AC01_BUILD.buildId) || '';
-      if (marker) {
-        marker.textContent = (data.buildId || '未返回') + ' · ' + (data.dataMode || '未返回') + ' · 非生产数据';
-      }
+      const decision = (Rules && Rules.identityDecision)
+        ? Rules.identityDecision(data, window.AC01_BUILD || {})
+        : { ok: false, reasons: ['missing-check'] };
+      applyReleaseMarker(data, decision);
       const targets = document.getElementById('target-marker');
       if (targets && window.FSRules && FSRules.describeRelease) {
         const described = FSRules.describeRelease(data);
         targets.dataset.state = described.state;
         targets.textContent = described.text;
       }
-      if (!data.buildId || data.buildId !== pageBuild || data.productionData !== false || data.dataMode !== 'simulated-test') {
-        showStatus('页面版本与接口版本不一致，或接口不是隔离模拟测试发布。', 'danger');
+      if (!decision.ok) {
+        releaseAccepted = false;
+        showStatus(RELEASE_REJECTED, 'danger');
+        viewEl.innerHTML = alertBox('danger', E(RELEASE_REJECTED));
+        return;
+      }
+      releaseAccepted = true;
+      me = data.user;
+      asOf = data.asOf || '';
+      whoEl.textContent = `${me.displayName} · ${me.role} · ${me.jobId}`;
+      const gate = document.getElementById('gate-note');
+      if (gate) {
+        gate.textContent = data.openingConfirmed
+          ? '正式预览，不是真实运营。期初已确认。正式定稿仍须完成配平、完成页确认，且由接口放行。对客正式合同生成已关闭。'
+          : '正式预览，不是真实运营。期初待确认，禁止正式记账。对客正式合同生成已关闭。';
       }
       await render();
     } catch (e) {
@@ -162,9 +174,13 @@
   });
 
   async function render() {
-    const token = ++renderToken;
     const view = currentView();
     setNav(view);
+    if (!releaseAccepted) {
+      viewEl.innerHTML = alertBox('danger', E(RELEASE_REJECTED));
+      return;
+    }
+    const token = ++renderToken;
     viewEl.innerHTML = '<p class="muted" role="status">正在读取…</p>';
     try {
       if (view === 'dashboard') await renderDashboard(token);

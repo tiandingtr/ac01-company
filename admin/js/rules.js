@@ -90,6 +90,36 @@
     return typeof value === 'string' ? value : '';
   }
 
+  var OFFICIAL_PREVIEW_BUILD = 'ac01-official-preview-20261119';
+  var OFFICIAL_PREVIEW_MODE = 'official-preview';
+
+  /* Strict identity gate. Accepts only the official-preview contract. Does not call the network. */
+  function identityDecision(data, expected) {
+    var reasons = [];
+    expected = expected || {};
+    if (expected.buildId !== OFFICIAL_PREVIEW_BUILD) reasons.push('page-build');
+    if (expected.dataMode !== OFFICIAL_PREVIEW_MODE) reasons.push('page-dataMode');
+    if (expected.productionData !== false) reasons.push('page-productionData');
+    if (!data || typeof data !== 'object') {
+      reasons.push('missing');
+      return { ok: false, reasons: reasons };
+    }
+    if (data.buildId !== expected.buildId) reasons.push('buildId');
+    if (data.dataMode !== expected.dataMode) reasons.push('dataMode');
+    if (data.productionData !== false) reasons.push('productionData');
+    if (data.dataMode === 'production') reasons.push('production-mode');
+    if (data.productionData === true) reasons.push('production-data');
+    var release = data.release;
+    if (release && typeof release === 'object') {
+      if (Object.prototype.hasOwnProperty.call(release, 'buildId') && release.buildId !== expected.buildId) reasons.push('release.buildId');
+      if (Object.prototype.hasOwnProperty.call(release, 'dataMode') && release.dataMode !== expected.dataMode) reasons.push('release.dataMode');
+      if (Object.prototype.hasOwnProperty.call(release, 'productionData') && release.productionData !== false) reasons.push('release.productionData');
+      if (release.dataMode === 'production') reasons.push('release-production-mode');
+      if (release.productionData === true) reasons.push('release-production-data');
+    }
+    return { ok: reasons.length === 0, reasons: reasons };
+  }
+
   /* Formats the me.release object already returned at login. Does not invent ids. */
   function describeRelease(data) {
     var release = data && typeof data.release === 'object' && data.release ? data.release : null;
@@ -149,6 +179,7 @@
     checkCashMonth: checkCashMonth,
     formalPostDecision: formalPostDecision,
     completionDecision: completionDecision,
+    identityDecision: identityDecision,
     describeRelease: describeRelease
   };
 });
