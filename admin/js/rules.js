@@ -180,6 +180,89 @@
     };
   }
 
+  /* One already archived synthetic upload. No other request, file, or customer record. */
+  var PREVIEW_REPLAY = {
+    clientRequestId: 'FL-mwnbgmp4167scl',
+    fileId: 'FL-MWNBGWP7K04U72',
+    fileName: 'ac01-preview-attachment-20261119-03.pdf',
+    size: 1528,
+    sha256: '2ac03e15e1f14527606cffffac3d3309b1165d4be716468363153200bd9a7c25',
+    category: '其他',
+    relatedId: 'PL-MWN92TMG60CBO9'
+  };
+
+  function previewReplayGate(input) {
+    input = input || {};
+    var reasons = [];
+    var identity = identityDecision(input.session, input.page);
+    if (!identity.ok) reasons = reasons.concat(identity.reasons);
+    if (input.role !== '顾问') reasons.push('role');
+    var file = input.file;
+    if (!file) reasons.push('file-missing');
+    else {
+      if (file.name !== PREVIEW_REPLAY.fileName) reasons.push('file-name');
+      if (file.size !== PREVIEW_REPLAY.size) reasons.push('file-size');
+      if (String(file.sha256 || '').toLowerCase() !== PREVIEW_REPLAY.sha256) reasons.push('file-hash');
+    }
+    var request = null;
+    if (!reasons.length) {
+      request = {
+        category: PREVIEW_REPLAY.category,
+        relatedId: PREVIEW_REPLAY.relatedId,
+        clientRequestId: PREVIEW_REPLAY.clientRequestId
+      };
+    }
+    return { ok: reasons.length === 0, reasons: reasons, request: request };
+  }
+
+  function previewReplayRefusal(reasons) {
+    var known = {
+      'file-missing': '没有选择文件。',
+      'file-name': '文件名不是这条虚构资料。',
+      'file-size': '文件大小不是 1528 字节。',
+      'file-hash': '文件内容不是这条虚构资料。',
+      role: '当前角色不能重放。'
+    };
+    var parts = [];
+    var environment = false;
+    (reasons || []).forEach(function (reason) {
+      if (known[reason]) parts.push(known[reason]);
+      else environment = true;
+    });
+    if (environment) parts.unshift('当前身份不是正式预览或不是非生产数据，已拒绝。');
+    if (!parts.length) parts.push('已拒绝。');
+    return '未向接口提交。' + parts.join('');
+  }
+
+  function previewReplayVerdict(out) {
+    var file = out && out.file ? out.file : {};
+    var reasons = [];
+    if (!out || out.idempotentReplay !== true) reasons.push('idempotentReplay');
+    if (file.id !== PREVIEW_REPLAY.fileId) reasons.push('fileId');
+    if (file.clientRequestId && file.clientRequestId !== PREVIEW_REPLAY.clientRequestId) reasons.push('clientRequestId');
+    if (file.name && file.name !== PREVIEW_REPLAY.fileName) reasons.push('name');
+    if (file.category && file.category !== PREVIEW_REPLAY.category) reasons.push('category');
+    if (file.relatedId && file.relatedId !== PREVIEW_REPLAY.relatedId) reasons.push('relatedId');
+    return {
+      ok: reasons.length === 0,
+      reasons: reasons,
+      fileId: file.id || '',
+      idempotentReplay: out ? out.idempotentReplay : undefined
+    };
+  }
+
+  function previewReplayText(verdict) {
+    var flag = verdict && verdict.idempotentReplay === true
+      ? 'true'
+      : verdict && verdict.idempotentReplay === false
+        ? 'false'
+        : '未返回';
+    var head = verdict && verdict.ok
+      ? '幂等重放成立。'
+      : '幂等重放未成立。已停止，没有再次提交。';
+    return head + ' fileId ' + ((verdict && verdict.fileId) || '未返回') + '。idempotentReplay ' + flag + '。仅正式预览的一条虚构资料。';
+  }
+
   return {
     CASH_LINE_LIMIT: CASH_LINE_LIMIT,
     CASH_MONTH_LIMIT: CASH_MONTH_LIMIT,
@@ -190,6 +273,11 @@
     previewFormalPostClosed: previewFormalPostClosed,
     completionDecision: completionDecision,
     identityDecision: identityDecision,
-    describeRelease: describeRelease
+    describeRelease: describeRelease,
+    PREVIEW_REPLAY: PREVIEW_REPLAY,
+    previewReplayGate: previewReplayGate,
+    previewReplayRefusal: previewReplayRefusal,
+    previewReplayVerdict: previewReplayVerdict,
+    previewReplayText: previewReplayText
   };
 });

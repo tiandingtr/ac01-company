@@ -16,7 +16,7 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=' + BUILD + '-timeout';
+const CACHE = '?v=' + BUILD + '-replay';
 
 const rules = require(path.join(root, 'admin/js/rules.js'));
 const expected = loadBuild();
@@ -107,7 +107,7 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-preview-20261119-timeout');
+assert.equal(CACHE, '?v=ac01-official-preview-20261119-replay');
 assert.ok(read('admin/index.html').includes('页面契约 ' + BUILD));
 assert.equal(read('admin/index.html').includes('?v=' + BUILD + '"'), false);
 

@@ -5,6 +5,7 @@
   const titleEl = document.getElementById('title');
   const whoEl = document.getElementById('who');
   let me = null;
+  let signedSession = null;
   let releaseAccepted = false;
   const RELEASE_REJECTED = '已拒绝：接口身份与本页正式预览契约不一致。错版、错误环境或生产数据都不会继续读取业务数据。';
   let financeTab = 'statements';
@@ -46,6 +47,12 @@
 
   function newRequestId(prefix) {
     return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  async function sha256Hex(file) {
+    if (!crypto || !crypto.subtle || !file) throw new Error('无法在本页核对文件内容。已停止，没有提交。');
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
   }
 
   function shanghaiYmd(now) {
@@ -186,6 +193,7 @@
         return;
       }
       releaseAccepted = true;
+      signedSession = data;
       me = data.user;
       asOf = data.asOf || '';
       whoEl.textContent = `${me.displayName} · ${me.role} · ${me.jobId}`;
@@ -464,6 +472,16 @@
           <button class="btn teal small" type="submit">上传</button>
         </form>
       </div>
+      ${me && me.role === '顾问' ? `<div class="card" id="replay-card" style="margin-bottom:16px">
+        <h3>同一请求号重放（仅正式预览、仅一条虚构资料）</h3>
+        <p>此为正式预览，不是真实运营。这里只重放已经归档的一条虚构资料。请求号、类别和关联编号都不能改，也不能用来重放其他文件。</p>
+        <p>请求号 ${E(Rules.PREVIEW_REPLAY.clientRequestId)} · 预期 fileId ${E(Rules.PREVIEW_REPLAY.fileId)} · 文件 ${E(Rules.PREVIEW_REPLAY.fileName)} · ${E(Rules.PREVIEW_REPLAY.size)} 字节 · 类别 ${E(Rules.PREVIEW_REPLAY.category)} · 关联 ${E(Rules.PREVIEW_REPLAY.relatedId)}</p>
+        <form id="replay-form">
+          <div class="field"><label>选择那一份原始虚构 PDF</label><input name="file" type="file" accept="application/pdf,.pdf" required></div>
+          <button class="btn small" type="submit">重放这一条</button>
+        </form>
+        <p id="replay-result" class="hint" role="status"></p>
+      </div>` : ''}
       <div class="card" style="margin-bottom:16px">
         <h3>隐私声明存证（双向）</h3>
         <p class="muted">客户递交经营资料时应勾选并留下存证。顾问回传报告亦可在此记录。</p>
@@ -520,6 +538,54 @@
         form.dataset.req = '';
         await render();
       });
+    });
+    const replayForm = document.getElementById('replay-form');
+    if (replayForm) replayForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = replayForm.querySelector('button[type="submit"]');
+      if (!btn || btn.dataset.busy === '1') return;
+      const file = new FormData(replayForm).get('file');
+      const resultEl = document.getElementById('replay-result');
+      const showReplay = (text, type) => {
+        if (resultEl) resultEl.textContent = text;
+        showStatus(text, type);
+      };
+      btn.dataset.busy = '1';
+      btn.disabled = true;
+      (async () => {
+        try {
+          if (!file || !file.name) {
+            showReplay(Rules.previewReplayRefusal(['file-missing']), 'danger');
+            return;
+          }
+          const sha256 = await sha256Hex(file);
+          const plan = Rules.previewReplayGate({
+            session: signedSession,
+            page: window.AC01_BUILD || {},
+            role: me && me.role,
+            file: { name: file.name, size: file.size, sha256: sha256 }
+          });
+          if (!plan.ok || !plan.request) {
+            showReplay(Rules.previewReplayRefusal(plan.reasons), 'danger');
+            return;
+          }
+          const out = await api('uploadDocument', {
+            category: plan.request.category,
+            relatedId: plan.request.relatedId,
+            clientRequestId: plan.request.clientRequestId,
+            __timeoutMs: 25000
+          }, file);
+          const verdict = Rules.previewReplayVerdict(out);
+          showReplay(Rules.previewReplayText(verdict), verdict.ok ? 'ok' : 'danger');
+        } catch (err) {
+          showReplay((err && err.message) ? err.message : '重放没有完成。已停止，没有再次提交。', 'danger');
+        } finally {
+          if (btn.isConnected) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+          }
+        }
+      })();
     });
     document.getElementById('pics-btn').addEventListener('click', () => {
       const btn = document.getElementById('pics-btn');
