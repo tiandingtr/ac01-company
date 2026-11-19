@@ -26,6 +26,12 @@
     el.textContent = message || '';
   }
 
+  function clearStaleDanger() {
+    const el = document.getElementById('status');
+    if (!el || !el.classList.contains('danger')) return;
+    showStatus('', '');
+  }
+
   function downloadText(filename, text) {
     const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -40,6 +46,53 @@
 
   function newRequestId(prefix) {
     return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function shanghaiYmd(now) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(now || new Date());
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function isUnconfirmedWrite(err) {
+    return !!(err && err.intent === 'write' && (err.code === 'TIMEOUT' || err.code === 'NETWORK' || err.code === 'BAD_RESPONSE'));
+  }
+
+  function uploadUnconfirmedError(kind) {
+    const text = kind === 'missing'
+      ? '上传请求没有在时限内返回。已回读资料台账，没有找到本次文件，因此本次可能尚未保存。请稍后重新打开资料页核对，不要立刻再次上传。'
+      : kind === 'ambiguous'
+        ? '上传请求没有在时限内返回。资料台账里有不止一条与本次文件相符的记录，无法确定编号。请打开列表核对，不要再次上传。'
+        : '上传请求没有在时限内返回，回读资料台账也没有成功，所以还不能判断这次文件是否已经入账。请稍后重新打开资料页核对，不要立刻再次上传。';
+    const err = new Error(text);
+    err.code = kind === 'missing' ? 'UPLOAD_NOT_ON_LEDGER' : kind === 'ambiguous' ? 'UPLOAD_AMBIGUOUS' : 'UPLOAD_RECONCILE_FAILED';
+    return err;
+  }
+
+  async function confirmUploadedFile(hint, knownIds) {
+    let sawLedger = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await delay(2000);
+      try {
+        const data = await api('getDocuments', { __timeoutMs: 40000 });
+        sawLedger = true;
+        const judged = FS.reconcileUploadedFile((data && data.files) || [], hint, knownIds);
+        if (judged && judged.status && judged.status !== 'missing') return judged;
+      } catch (err) {
+        if (err && err.status === 401) throw err;
+        const transport = err && (err.code === 'TIMEOUT' || err.code === 'NETWORK' || err.code === 'BAD_RESPONSE');
+        if (!transport) throw err;
+      }
+    }
+    if (sawLedger) return { status: 'missing', file: null };
+    return { status: 'unverified', file: null };
   }
 
   function ym(value) {
@@ -61,10 +114,17 @@
       return null;
     } finally {
       if (btn.isConnected) {
-        btn.dataset.busy = '0';
-        btn.disabled = false;
-        btn.removeAttribute('aria-busy');
-        btn.textContent = prev;
+        if (btn.dataset.hold === '1') {
+          btn.disabled = true;
+          btn.setAttribute('aria-disabled', 'true');
+          btn.removeAttribute('aria-busy');
+          btn.textContent = '请先核对列表';
+        } else {
+          btn.dataset.busy = '0';
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          btn.textContent = prev;
+        }
       }
     }
   }
@@ -180,6 +240,7 @@
       viewEl.innerHTML = alertBox('danger', E(RELEASE_REJECTED));
       return;
     }
+    clearStaleDanger();
     const token = ++renderToken;
     viewEl.innerHTML = '<p class="muted" role="status">正在读取…</p>';
     try {
@@ -384,6 +445,7 @@
       <td>${E(p.id)}</td><td>${E(p.date)}</td><td>${E(p.role)}</td><td>${E(p.version)}</td>
       <td>${p.acknowledged ? badge('已勾选') : badge('未勾选')}</td><td>${E(p.digest)}</td>
     </tr>`).join('');
+    const knownIds = (d.files || []).map((f) => f && f.id).filter(Boolean);
     viewEl.innerHTML = `
       ${alertBox('info', '同一文件只上传一次。月账、合同等模块只认领和关联，不因引用再记一笔账，也不再要求重传。')}
       <div class="card" style="margin-bottom:16px">
@@ -420,15 +482,41 @@
       const btn = form.querySelector('button[type="submit"]');
       if (!form.dataset.req) form.dataset.req = newRequestId('FL');
       const fd = new FormData(form);
+      const file = fd.get('file');
+      const hint = {
+        clientRequestId: form.dataset.req,
+        name: file && file.name || '',
+        category: String(fd.get('category') || ''),
+        relatedId: String(fd.get('relatedId') || ''),
+        size: file && file.size != null ? file.size : '',
+        uploadedBy: me && me.jobId || '',
+        date: shanghaiYmd()
+      };
       withSubmit(btn, async () => {
-        const out = await api('uploadDocument', {
-          category: fd.get('category'),
-          relatedId: fd.get('relatedId'),
-          clientRequestId: form.dataset.req,
-          __timeoutMs: 25000
-        }, fd.get('file'));
+        let out;
+        try {
+          out = await api('uploadDocument', {
+            category: hint.category,
+            relatedId: hint.relatedId,
+            clientRequestId: hint.clientRequestId,
+            __timeoutMs: 25000
+          }, file);
+        } catch (err) {
+          if (err && err.status === 401) throw err;
+          if (!isUnconfirmedWrite(err)) throw err;
+          if (btn.isConnected) btn.textContent = '正在核对台账…';
+          showStatus('上传请求没有及时返回，正在只读核对资料台账…', 'info');
+          const judged = await confirmUploadedFile(hint, knownIds);
+          if (!judged || judged.status !== 'found' || !judged.file) {
+            btn.dataset.hold = '1';
+            const input = form.querySelector('input[type="file"]');
+            if (input) input.value = '';
+            throw uploadUnconfirmedError(judged && judged.status);
+          }
+          out = { file: judged.file, relatedId: judged.file.relatedId || '', reconciled: true };
+        }
         const echoed = out.relatedId || (out.file && out.file.relatedId) || '';
-        showStatus('资料已归档 ' + out.file.id + (echoed ? ' · 关联编号 ' + echoed : ' · 未填写关联编号'), 'ok');
+        showStatus('资料已归档 ' + out.file.id + (echoed ? ' · 关联编号 ' + echoed : ' · 未填写关联编号') + (out.reconciled ? '。回读台账已确认，请不要再次上传。' : ''), 'ok');
         form.dataset.req = '';
         await render();
       });
