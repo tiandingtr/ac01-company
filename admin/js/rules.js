@@ -77,12 +77,15 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
-  /* Official preview never posts formal books. Prerequisites are ignored. */
-  function previewFormalPostClosed() {
+  /* This release never posts formal books. Prerequisites are ignored. Preview keeps its original sentence. */
+  function previewFormalPostClosed(state, profile) {
+    var reason = profile === 'official'
+      ? '本版本未开放财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。'
+      : '正式预览禁止财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。';
     return {
       allowed: false,
       code: 'PREVIEW_FORMAL_POST_CLOSED',
-      reasons: ['正式预览禁止财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。']
+      reasons: [reason]
     };
   }
 
@@ -95,48 +98,123 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  /* Empty-state copy. Official trusts the returned list; the back end already drops test rows. */
+  function monthPlanEmptyText(profile, plans) {
+    var list = plans || [];
+    if (list.length) return '';
+    if (profile === 'official') return '本月尚未登记正式计划（测试数据不计入）';
+    return '本月尚未登记计划。';
+  }
+
   function stringOrEmpty(value) {
     return typeof value === 'string' ? value : '';
   }
 
-  var OFFICIAL_PREVIEW_BUILD = 'ac01-official-preview-20261119';
-  var OFFICIAL_PREVIEW_MODE = 'official-preview';
+  var IDENTITY_GROUPS = [
+    { name: 'preview', buildId: 'ac01-official-preview-20261119', dataMode: 'official-preview', productionData: false },
+    { name: 'official', buildId: 'ac01-official-20261120', dataMode: 'official', productionData: true }
+  ];
 
-  /* Strict identity gate. Accepts only the official-preview contract. Does not call the network. */
+  function hasOwn_(obj, key) {
+    return !!obj && Object.prototype.hasOwnProperty.call(obj, key);
+  }
+
+  function exactGroup_(source) {
+    if (!source) return null;
+    for (var i = 0; i < IDENTITY_GROUPS.length; i++) {
+      var group = IDENTITY_GROUPS[i];
+      if (source.buildId === group.buildId && source.dataMode === group.dataMode && source.productionData === group.productionData) return group;
+    }
+    return null;
+  }
+
+  function pushUnique_(reasons, code) {
+    if (reasons.indexOf(code) < 0) reasons.push(code);
+  }
+
+  function pageMismatch_(expected) {
+    var reasons = [];
+    if (exactGroup_(expected)) return reasons;
+    var knownBuild = IDENTITY_GROUPS.some(function (group) { return expected.buildId === group.buildId; });
+    var knownMode = IDENTITY_GROUPS.some(function (group) { return expected.dataMode === group.dataMode; });
+    var knownFlag = expected.productionData === false || expected.productionData === true;
+    if (!knownBuild) reasons.push('page-build');
+    if (!knownMode) reasons.push('page-dataMode');
+    if (!knownFlag) reasons.push('page-productionData');
+    if (!reasons.length) {
+      var anchor = IDENTITY_GROUPS.filter(function (group) { return group.buildId === expected.buildId; })[0]
+        || IDENTITY_GROUPS.filter(function (group) { return group.dataMode === expected.dataMode; })[0]
+        || IDENTITY_GROUPS[0];
+      if (expected.buildId !== anchor.buildId) reasons.push('page-build');
+      if (expected.dataMode !== anchor.dataMode) reasons.push('page-dataMode');
+      if (expected.productionData !== anchor.productionData) reasons.push('page-productionData');
+    }
+    return reasons;
+  }
+
+  function layerMismatch_(source, prefix) {
+    var buildCode = prefix ? 'release.buildId' : 'buildId';
+    var modeCode = prefix ? 'release.dataMode' : 'dataMode';
+    var prodCode = prefix ? 'release.productionData' : 'productionData';
+    var buildMissing = prefix ? 'release.buildId-missing' : 'buildId-missing';
+    var modeMissing = prefix ? 'release.dataMode-missing' : 'dataMode-missing';
+    var prodMissing = prefix ? 'release.productionData-missing' : 'productionData-missing';
+    var modeFlag = prefix ? 'release-production-mode' : 'production-mode';
+    var dataFlag = prefix ? 'release-production-data' : 'production-data';
+    var reasons = [];
+    var hasBuild = hasOwn_(source, 'buildId');
+    var hasMode = hasOwn_(source, 'dataMode');
+    var hasProd = hasOwn_(source, 'productionData');
+    if (!hasBuild) reasons.push(buildMissing);
+    if (!hasMode) reasons.push(modeMissing);
+    if (!hasProd) reasons.push(prodMissing);
+    if (hasBuild && hasMode && hasProd && exactGroup_(source)) return { reasons: reasons, group: exactGroup_(source) };
+    var anchor = (hasBuild && IDENTITY_GROUPS.filter(function (group) { return group.buildId === source.buildId; })[0])
+      || (hasMode && IDENTITY_GROUPS.filter(function (group) { return group.dataMode === source.dataMode; })[0])
+      || null;
+    if (!prefix) {
+      if (!hasBuild || (hasBuild && (!anchor || source.buildId !== anchor.buildId))) pushUnique_(reasons, buildCode);
+      if (!hasMode || (anchor && source.dataMode !== anchor.dataMode) || (hasMode && !anchor)) pushUnique_(reasons, modeCode);
+      if (!hasProd || (anchor && source.productionData !== anchor.productionData) || (hasProd && !anchor && source.productionData !== false && source.productionData !== true)) pushUnique_(reasons, prodCode);
+    } else if (hasBuild && hasMode && hasProd) {
+      if (!anchor || source.buildId !== anchor.buildId) pushUnique_(reasons, buildCode);
+      if (!anchor || source.dataMode !== anchor.dataMode) pushUnique_(reasons, modeCode);
+      if (!anchor || source.productionData !== anchor.productionData) pushUnique_(reasons, prodCode);
+    }
+    if (hasMode && source.dataMode === 'production') pushUnique_(reasons, modeFlag);
+    if (hasProd && source.productionData === true && !exactGroup_(source)) pushUnique_(reasons, dataFlag);
+    return { reasons: reasons, group: null };
+  }
+
+  /* Accepts only the preview group or the official group, as a whole, with me and release in the same group. */
   function identityDecision(data, expected) {
     var reasons = [];
     expected = expected || {};
-    if (expected.buildId !== OFFICIAL_PREVIEW_BUILD) reasons.push('page-build');
-    if (expected.dataMode !== OFFICIAL_PREVIEW_MODE) reasons.push('page-dataMode');
-    if (expected.productionData !== false) reasons.push('page-productionData');
+    reasons = reasons.concat(pageMismatch_(expected));
     if (!data || typeof data !== 'object') {
       reasons.push('missing');
-      return { ok: false, reasons: reasons };
+      return { ok: false, reasons: reasons, profile: '' };
     }
-    if (!Object.prototype.hasOwnProperty.call(data, 'buildId')) reasons.push('buildId-missing');
-    if (data.buildId !== expected.buildId) reasons.push('buildId');
-    if (!Object.prototype.hasOwnProperty.call(data, 'dataMode')) reasons.push('dataMode-missing');
-    if (data.dataMode !== expected.dataMode) reasons.push('dataMode');
-    if (!Object.prototype.hasOwnProperty.call(data, 'productionData')) reasons.push('productionData-missing');
-    if (data.productionData !== false) reasons.push('productionData');
-    if (data.dataMode === 'production') reasons.push('production-mode');
-    if (data.productionData === true) reasons.push('production-data');
+    var top = layerMismatch_(data, '');
+    reasons = reasons.concat(top.reasons);
     var release = data.release;
     var releaseProto = release && typeof release === 'object' ? Object.getPrototypeOf(release) : null;
     var releaseIsPlain = !!release && typeof release === 'object' && !Array.isArray(release) && (releaseProto === Object.prototype || releaseProto === null);
+    var releaseGroup = null;
     if (!releaseIsPlain) {
       reasons.push('release-missing');
     } else {
-      if (!Object.prototype.hasOwnProperty.call(release, 'buildId')) reasons.push('release.buildId-missing');
-      else if (release.buildId !== expected.buildId) reasons.push('release.buildId');
-      if (!Object.prototype.hasOwnProperty.call(release, 'dataMode')) reasons.push('release.dataMode-missing');
-      else if (release.dataMode !== expected.dataMode) reasons.push('release.dataMode');
-      if (!Object.prototype.hasOwnProperty.call(release, 'productionData')) reasons.push('release.productionData-missing');
-      else if (release.productionData !== false) reasons.push('release.productionData');
-      if (release.dataMode === 'production') reasons.push('release-production-mode');
-      if (release.productionData === true) reasons.push('release-production-data');
+      var rel = layerMismatch_(release, 'release.');
+      reasons = reasons.concat(rel.reasons);
+      releaseGroup = rel.group;
+      if (top.group && releaseGroup && top.group.name !== releaseGroup.name) {
+        pushUnique_(reasons, 'release.buildId');
+        pushUnique_(reasons, 'release.dataMode');
+        pushUnique_(reasons, 'release.productionData');
+      }
     }
-    return { ok: reasons.length === 0, reasons: reasons };
+    var profile = top.group && releaseGroup && top.group.name === releaseGroup.name && !reasons.length ? top.group.name : '';
+    return { ok: reasons.length === 0, reasons: reasons, profile: profile };
   }
 
   /* Formats the me.release object already returned at login. Does not invent ids. */
@@ -201,11 +279,16 @@
     relatedId: 'PL-MWN92TMG60CBO9'
   };
 
+  function previewReplayClosedText(code) {
+    return code === 'PREVIEW_REPLAY_CLOSED' ? '正式环境不开放虚构资料重放' : '';
+  }
+
   function previewReplayGate(input) {
     input = input || {};
     var reasons = [];
     var identity = identityDecision(input.session, input.page);
     if (!identity.ok) reasons = reasons.concat(identity.reasons);
+    else if (identity.profile === 'official') reasons.push('productionData');
     if (input.role !== '顾问') reasons.push('role');
     var file = input.file;
     if (!file) reasons.push('file-missing');
@@ -290,9 +373,11 @@
     previewFormalPostClosed: previewFormalPostClosed,
     completionDecision: completionDecision,
     identityDecision: identityDecision,
+    monthPlanEmptyText: monthPlanEmptyText,
     describeRelease: describeRelease,
     PREVIEW_REPLAY: PREVIEW_REPLAY,
     previewReplayGate: previewReplayGate,
+    previewReplayClosedText: previewReplayClosedText,
     previewReplayRefusal: previewReplayRefusal,
     previewReplayVerdict: previewReplayVerdict,
     previewReplayText: previewReplayText
