@@ -258,8 +258,8 @@ try {
   await page.setViewport({ width: 1280, height: 900 });
   await page.goto(base + '/admin/login.html', { waitUntil: 'networkidle0' });
   const loginText = await page.evaluate(() => document.body.innerText);
-  if (!loginText.includes('正在确认身份…') || loginText.includes('正式预览')) {
-    throw new Error('login page shows an identity before me returns');
+  if (!loginText.includes('授权失败即拒绝，不会放宽鉴权。') || !loginText.includes('授权表缺失或为空时不会放行。') || loginText.includes('正在确认身份…')) {
+    throw new Error('login page no longer states the authentication boundary');
   }
   summary.shots.push(await shot(page, 'ac01-preview-login-desktop.png'));
   const desktopOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);

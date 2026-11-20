@@ -16,7 +16,7 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=ac01-official-20261120-compat2';
+const CACHE = '?v=ac01-official-20261120-compat3';
 const OFFICIAL_BUILD = 'ac01-official-20261120';
 const OFFICIAL_MODE = 'official';
 
@@ -165,12 +165,13 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-20261120-compat2');
+assert.equal(CACHE, '?v=ac01-official-20261120-compat3');
 assert.ok(read('admin/js/build.js').includes(OFFICIAL_BUILD));
 assert.ok(read('admin/js/build.js').includes("productionData: true"));
 assert.ok(read('admin/js/app.js').includes("decision.profile === 'official'"));
 assert.ok(read('admin/js/app.js').includes('正式数据'));
-assert.ok(read('admin/index.html').includes('页面契约 ' + BUILD));
+assert.equal(read('admin/index.html').includes(BUILD), false);
+assert.ok(read('admin/index.html').includes('登录后与接口核对。'));
 assert.equal(read('admin/index.html').includes('?v=' + BUILD + '"'), false);
 
 const config = read('admin/js/config.js');
@@ -200,10 +201,17 @@ for (const abs of adminFiles) {
 }
 assert.deepEqual(execHits, [], 'admin frontend must point only at the new exec and the new identity');
 
+const indexHtml = read('admin/index.html');
+assert.ok(indexHtml.includes('正在确认身份…'));
+assert.equal(indexHtml.includes('正式预览'), false);
+assert.equal(indexHtml.includes('ac01-official-preview-20261119'), false);
+const loginHtml = read('admin/login.html');
+assert.equal(loginHtml.includes('正在确认身份…'), false);
+assert.ok(loginHtml.includes('此为正式预览，不是真实运营。授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。'));
+assert.ok(loginHtml.includes('此为正式预览，不是真实运营。授权失败即拒绝，不会放宽鉴权。'));
+assert.ok(loginHtml.includes('本入口只连接本项目的正式预览接口，不是真实运营。请勿在页面或聊天中保存口令。'));
 for (const rel of ['admin/index.html', 'admin/login.html']) {
   const html = read(rel);
-  assert.ok(html.includes('正在确认身份…'), rel + ' must stay neutral before me');
-  assert.equal(html.includes('正式预览'), false, rel + ' must not show preview wording before me');
   const refs = [...html.matchAll(/\b(?:src|href)="([^"]+\.(?:js|css)[^"]*)"/g)].map((m) => m[1]);
   assert.ok(refs.length > 0, rel + ' should reference assets');
   for (const ref of refs) {
@@ -251,13 +259,16 @@ assert.equal(officialClosed.reasons[0].includes('正式预览'), false);
 assert.ok(officialClosed.reasons[0].includes('本版本未开放财务定稿'));
 assert.equal(rules.previewFormalPostClosed().allowed, false);
 assert.equal(rules.monthPlanEmptyText('official', []), '本月尚未登记正式计划（测试数据不计入）');
-assert.equal(rules.monthPlanEmptyText('official', [{ title: '测试开户', notes: '虚构' }]), '本月尚未登记正式计划（测试数据不计入）');
+assert.equal(rules.monthPlanEmptyText('official', [{ title: '测试开户', notes: '虚构' }]), '');
 assert.equal(rules.monthPlanEmptyText('official', [{ title: '客户拜访', notes: '' }]), '');
-assert.equal(rules.monthPlanEmptyText('official', [{ test: true, title: '客户拜访' }]), '本月尚未登记正式计划（测试数据不计入）');
 assert.equal(rules.monthPlanEmptyText('preview', []), '本月尚未登记计划。');
 assert.equal(rules.monthPlanEmptyText('preview', [{ title: '测试开户' }]), '');
 assert.equal(rules.monthPlanEmptyText('', []), '本月尚未登记计划。');
 assert.equal(rules.monthPlanEmptyText(undefined, []), '本月尚未登记计划。');
+assert.equal(read('admin/js/rules.js').includes('isTestPlan_'), false);
+assert.ok(app.includes('function applyRejectedChrome'));
+assert.ok(app.includes('applyRejectedChrome()'));
+assert.equal(app.slice(app.indexOf('function applyRejectedChrome'), app.indexOf('function applyOfficialChrome')).includes('正在确认身份…'), false);
 assert.ok(read('admin/js/app.js').includes('本月尚未登记计划。'));
 assert.ok(read('admin/js/app.js').includes('monthPlanEmptyText'));
 assert.ok(read('admin/js/rules.js').includes('本月尚未登记正式计划（测试数据不计入）'));

@@ -263,6 +263,17 @@
     if (foot) foot.textContent = '一户一套：一本独立表、一个专属文件夹、一套接口。正式预览，不是真实运营。期初待确认，禁止正式记账。财务定稿已关闭。';
   }
 
+  function applyRejectedChrome() {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = '<span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span><span>' + RELEASE_REJECTED + '</span>';
+    }
+    const foot = document.querySelector('.side .foot');
+    if (foot) foot.textContent = RELEASE_REJECTED;
+    const gate = document.getElementById('gate-note');
+    if (gate) gate.textContent = RELEASE_REJECTED;
+  }
+
   function applyOfficialChrome() {
     const banner = document.querySelector('.preview-banner');
     if (banner) {
@@ -301,6 +312,7 @@
       if (!decision.ok) {
         releaseState = 'rejected';
         releaseReasons = decision.reasons || [];
+        applyRejectedChrome();
         showStatus(rejectionText(), 'danger');
         viewEl.innerHTML = alertBox('danger', E(rejectionText()));
         return;
