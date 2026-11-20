@@ -200,7 +200,7 @@ assert.ok(app.includes('回读台账已确认，请不要再次上传。'));
 assert.ok(app.includes("btn.dataset.hold = '1'"));
 assert.equal(/api\(\s*['"]postFourStatements['"]/.test(app), false);
 assert.equal(/api\(\s*['"]generateOfficialContract['"]/.test(app), false);
-assert.ok(app.includes('previewFormalPostClosed()'));
+assert.ok(app.includes('previewFormalPostClosed(undefined, identityProfile)'));
 assert.equal(client.includes('retryable = true'), false);
 assert.ok(read('admin/js/config.js').includes('AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC'));
 assert.ok(read('admin/js/build.js').includes("buildId: 'ac01-official-preview-20261119'"));

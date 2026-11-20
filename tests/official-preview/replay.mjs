@@ -147,8 +147,12 @@ const officialSession = session({
     productionData: true
   }
 });
-assert.equal(gate({ session: officialSession, page: page }).ok, true, JSON.stringify(gate({ session: officialSession, page: page }).reasons));
-assert.equal(gate({ session: officialSession, page: officialPage }).ok, true);
+const officialGate = gate({ session: officialSession, page: page });
+assert.equal(officialGate.ok, false, JSON.stringify(officialGate.reasons));
+assert.equal(officialGate.request, null);
+assert.ok(officialGate.reasons.includes('productionData'));
+assert.equal(gate({ session: officialSession, page: officialPage }).ok, false);
+assert.ok(gate({ session: officialSession, page: officialPage }).reasons.includes('productionData'));
 assertRefuse('mixed top fields', {
   session: session({ dataMode: 'official', release: { buildId: page.buildId, dataMode: 'official', productionData: false } })
 }, 'dataMode');

@@ -77,12 +77,15 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
-  /* Official preview never posts formal books. Prerequisites are ignored. */
-  function previewFormalPostClosed() {
+  /* This release never posts formal books. Prerequisites are ignored. Preview keeps its original sentence. */
+  function previewFormalPostClosed(state, profile) {
+    var reason = profile === 'official'
+      ? '本版本未开放财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。'
+      : '正式预览禁止财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。';
     return {
       allowed: false,
       code: 'PREVIEW_FORMAL_POST_CLOSED',
-      reasons: ['正式预览禁止财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。']
+      reasons: [reason]
     };
   }
 
@@ -273,6 +276,7 @@
     var reasons = [];
     var identity = identityDecision(input.session, input.page);
     if (!identity.ok) reasons = reasons.concat(identity.reasons);
+    else if (identity.profile === 'official') reasons.push('productionData');
     if (input.role !== '顾问') reasons.push('role');
     var file = input.file;
     if (!file) reasons.push('file-missing');

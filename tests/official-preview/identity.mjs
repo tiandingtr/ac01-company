@@ -16,7 +16,7 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=ac01-official-20261120-compat';
+const CACHE = '?v=ac01-official-20261120-compat2';
 const OFFICIAL_BUILD = 'ac01-official-20261120';
 const OFFICIAL_MODE = 'official';
 
@@ -165,7 +165,7 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-20261120-compat');
+assert.equal(CACHE, '?v=ac01-official-20261120-compat2');
 assert.ok(read('admin/js/build.js').includes(OFFICIAL_BUILD));
 assert.ok(read('admin/js/build.js').includes("productionData: true"));
 assert.ok(read('admin/js/app.js').includes("decision.profile === 'official'"));
@@ -202,8 +202,8 @@ assert.deepEqual(execHits, [], 'admin frontend must point only at the new exec a
 
 for (const rel of ['admin/index.html', 'admin/login.html']) {
   const html = read(rel);
-  assert.ok(html.includes('正式预览'), rel + ' must say this is a preview');
-  assert.ok(html.includes('不是真实运营'), rel + ' must say this is not live operations');
+  assert.ok(html.includes('正在确认身份…'), rel + ' must stay neutral before me');
+  assert.equal(html.includes('正式预览'), false, rel + ' must not show preview wording before me');
   const refs = [...html.matchAll(/\b(?:src|href)="([^"]+\.(?:js|css)[^"]*)"/g)].map((m) => m[1]);
   assert.ok(refs.length > 0, rel + ' should reference assets');
   for (const ref of refs) {
@@ -223,7 +223,12 @@ assert.ok(app.includes('对客正式合同生成已关闭'));
 assert.ok(app.includes('模拟/草稿 非正式凭证'));
 assert.equal(/api\(\s*['"]postFourStatements['"]/.test(app), false);
 assert.equal(/api\(\s*['"]generateOfficialContract['"]/.test(app), false);
-assert.ok(app.includes('previewFormalPostClosed()'));
+assert.ok(app.includes('previewFormalPostClosed(undefined, identityProfile)'));
+assert.ok(app.includes('正式预览不提供财务定稿。'));
+assert.ok(app.includes('确认后仍不能定稿。正式预览不写入正式四套账。'));
+assert.ok(app.includes('本版本未开放财务定稿。'));
+assert.ok(app.includes('确认后仍不能定稿，本版本不写入正式四套账。'));
+assert.ok(read('admin/js/rules.js').includes('本版本未开放财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。'));
 assert.ok(app.includes('id="post-four" type="button" disabled aria-disabled="true"'));
 assert.equal(app.includes('此按钮会请求接口写入正式四套账'), false);
 assert.equal(app.includes('接口已接受正式定稿'), false);
@@ -239,6 +244,11 @@ const closed = rules.previewFormalPostClosed(readyBooks);
 assert.equal(closed.allowed, false);
 assert.equal(closed.code, 'PREVIEW_FORMAL_POST_CLOSED');
 assert.ok(closed.reasons[0].includes('正式预览禁止财务定稿'));
+assert.equal(rules.previewFormalPostClosed().reasons[0].includes('正式预览'), true);
+const officialClosed = rules.previewFormalPostClosed(readyBooks, 'official');
+assert.equal(officialClosed.allowed, false);
+assert.equal(officialClosed.reasons[0].includes('正式预览'), false);
+assert.ok(officialClosed.reasons[0].includes('本版本未开放财务定稿'));
 assert.equal(rules.previewFormalPostClosed().allowed, false);
 const boot = app.slice(app.indexOf('async function boot'), app.indexOf('document.getElementById(\'logout\')'));
 const rejectAt = boot.indexOf('if (!decision.ok)');

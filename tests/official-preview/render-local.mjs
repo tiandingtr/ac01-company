@@ -258,8 +258,8 @@ try {
   await page.setViewport({ width: 1280, height: 900 });
   await page.goto(base + '/admin/login.html', { waitUntil: 'networkidle0' });
   const loginText = await page.evaluate(() => document.body.innerText);
-  if (!loginText.includes('正式预览') || !loginText.includes('不是真实运营')) {
-    throw new Error('login page does not state the preview boundary');
+  if (!loginText.includes('正在确认身份…') || loginText.includes('正式预览')) {
+    throw new Error('login page shows an identity before me returns');
   }
   summary.shots.push(await shot(page, 'ac01-preview-login-desktop.png'));
   const desktopOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);

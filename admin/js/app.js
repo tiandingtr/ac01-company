@@ -8,6 +8,7 @@
   let signedSession = null;
   let releaseState = 'pending';
   let releaseReasons = [];
+  let identityProfile = '';
   const RELEASE_REJECTED = '已拒绝：接口身份与本页正式预览契约不一致。错版、错误环境或生产数据都不会继续读取业务数据。';
   const IDENTITY_PENDING = '正在核对接口身份…';
   const READ_SLOW_MS = 8000;
@@ -251,6 +252,15 @@
     return `<div class="alert ${type}">${html}</div>`;
   }
 
+  function applyPreviewChrome() {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = '<span>香港天鼎國際貿易有限公司 · 一体化公司管理后台 · <strong>正式预览</strong></span><span>此为正式预览，不是真实运营 · 期初待确认，禁止正式记账 · 财务定稿已关闭 · 对客正式合同生成已关闭</span>';
+    }
+    const foot = document.querySelector('.side .foot');
+    if (foot) foot.textContent = '一户一套：一本独立表、一个专属文件夹、一套接口。正式预览，不是真实运营。期初待确认，禁止正式记账。财务定稿已关闭。';
+  }
+
   function applyOfficialChrome() {
     const banner = document.querySelector('.preview-banner');
     if (banner) {
@@ -268,6 +278,7 @@
       applyOfficialChrome();
       return;
     }
+    if (decision && decision.ok && decision.profile === 'preview') applyPreviewChrome();
     const head = (data && data.buildId || '未返回') + ' · ' + (data && data.dataMode || '未返回') + ' · ' + (data && data.productionData === false ? '非生产数据' : 'productionData 不是 false');
     marker.textContent = decision.ok ? (head + ' · 正式预览') : (head + ' · 已拒绝');
   }
@@ -294,6 +305,7 @@
       }
       releaseState = 'accepted';
       releaseReasons = [];
+      identityProfile = decision.profile || '';
       signedSession = data;
       me = data.user;
       asOf = data.asOf || '';
@@ -610,7 +622,7 @@
           <button class="btn teal small" type="submit">上传</button>
         </form>
       </div>
-      ${me && me.role === '顾问' ? `<div class="card" id="replay-card" style="margin-bottom:16px">
+      ${identityProfile !== 'official' && me && me.role === '顾问' ? `<div class="card" id="replay-card" style="margin-bottom:16px">
         <h3>同一请求号重放（仅正式预览、仅一条虚构资料）</h3>
         <p>此为正式预览，不是真实运营。这里只重放已经归档的一条虚构资料。请求号、类别和关联编号都不能改，也不能用来重放其他文件。</p>
         <p>请求号 ${E(Rules.PREVIEW_REPLAY.clientRequestId)} · 预期 fileId ${E(Rules.PREVIEW_REPLAY.fileId)} · 文件 ${E(Rules.PREVIEW_REPLAY.fileName)} · ${E(Rules.PREVIEW_REPLAY.size)} 字节 · 类别 ${E(Rules.PREVIEW_REPLAY.category)} · 关联 ${E(Rules.PREVIEW_REPLAY.relatedId)}</p>
@@ -620,13 +632,13 @@
         </form>
         <p id="replay-result" class="hint" role="status"></p>
       </div>` : ''}
-      <div class="card" style="margin-bottom:16px">
+      ${identityProfile === 'official' ? '' : `<div class="card" style="margin-bottom:16px">
         <h3>隐私声明存证（双向）</h3>
         <p class="muted">客户递交经营资料时应勾选并留下存证。顾问回传报告亦可在此记录。</p>
         <button class="btn small" id="pics-btn" type="button">勾选预览版隐私声明并存证</button>
         <table style="margin-top:12px"><thead><tr><th>编号</th><th>日期</th><th>角色</th><th>版本</th><th>勾选</th><th>摘要</th></tr></thead>
         <tbody>${pics || '<tr><td colspan="6" class="muted">尚无存证。</td></tr>'}</tbody></table>
-      </div>
+      </div>`}
       <div class="card">
         <h3>资料与凭证台账</h3>
         <table><thead><tr><th>编号</th><th>日期</th><th>类别</th><th>文件名</th><th>关联编号</th><th>来源</th><th>状态</th><th>被认领</th><th></th></tr></thead>
@@ -725,8 +737,10 @@
         }
       })();
     });
-    document.getElementById('pics-btn').addEventListener('click', () => {
+    const picsBtn = document.getElementById('pics-btn');
+    if (picsBtn) picsBtn.addEventListener('click', () => {
       const btn = document.getElementById('pics-btn');
+      if (!btn) return;
       withSubmit(btn, async () => {
         await api('acknowledgePics', { version: 'AC01-PICS-PREVIEW-v0.1', __timeoutMs: 20000 });
         showStatus('隐私声明存证已记录。', 'ok');
@@ -799,7 +813,9 @@
         ${m.posted ? badge('已定稿') : badge('未定稿')}
         ${d.openingConfirmed ? badge('期初已确认') : badge('期初未确认')}
       </div>
-      ${alertBox('info', '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。正式预览不提供财务定稿。')}
+      ${alertBox('info', identityProfile === 'official'
+        ? '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。本版本未开放财务定稿。'
+        : '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。正式预览不提供财务定稿。')}
       <div class="tabs">
         ${tabBtn('statements', '1. 月结单与现金')}
         ${tabBtn('ledger', '2. 第一本明细账')}
@@ -914,11 +930,14 @@
       bankBalanced: !!d.month.bankBalanced,
       unfinished: unfinished
     });
-    const confirmBtn = d.month.completionConfirmed ? '' : `<button class="btn amber" id="confirm-done" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">确认完成页</button><p class="hint">${decision.allowed ? '确认后仍不能定稿。正式预览不写入正式四套账。' : E(decision.reasons.join(' '))}</p>`;
+    const confirmHint = decision.allowed
+      ? (identityProfile === 'official' ? '确认后仍不能定稿，本版本不写入正式四套账。' : '确认后仍不能定稿。正式预览不写入正式四套账。')
+      : E(decision.reasons.join(' '));
+    const confirmBtn = d.month.completionConfirmed ? '' : `<button class="btn amber" id="confirm-done" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">确认完成页</button><p class="hint">${confirmHint}</p>`;
     return `
       ${!d.month.ledgerGenerated ? alertBox('warn', '尚未生成第一本明细账，不能进入完成页。') : ''}
       ${d.month.ledgerGenerated && !d.month.bankBalanced ? alertBox('danger', '银行侧与月结单对不上，不能确认完成页，也不能定稿。') : ''}
-      ${unfinished ? alertBox('danger', `尚有 ${unfinished} 条未处理，不能确认完成页。`) : (decision.allowed ? alertBox('ok', '三类均已列明。正式预览仍禁止财务定稿。') : '')}
+      ${unfinished ? alertBox('danger', `尚有 ${unfinished} 条未处理，不能确认完成页。`) : (decision.allowed ? alertBox('ok', identityProfile === 'official' ? '三类均已列明。本版本未开放财务定稿。' : '三类均已列明。正式预览仍禁止财务定稿。') : '')}
       ${d.month.completionConfirmed ? alertBox('ok', '本月完成页已于 ' + E(d.month.completionConfirmedAt || '') + ' 确认。') : ''}
       <div class="card" style="margin-bottom:12px"><h3>已附原件（${(g.已附原件||[]).length}）</h3>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.已附原件||[])}</tbody></table></div>
@@ -932,8 +951,8 @@
 
   function renderFourTab(d) {
     const postClosed = (Rules && Rules.previewFormalPostClosed)
-      ? Rules.previewFormalPostClosed()
-      : { allowed: false, reasons: ['正式预览禁止财务定稿。'] };
+      ? Rules.previewFormalPostClosed(undefined, identityProfile)
+      : { allowed: false, reasons: [identityProfile === 'official' ? '本版本未开放财务定稿。' : '正式预览禁止财务定稿。'] };
     const groups = ['利润表', '资产负债表', '现金流量表', '流水明细'];
     const blocks = groups.map((t) => {
       const rows = (d.four || []).filter((r) => r.type === t);
@@ -946,7 +965,9 @@
     const previewOk = d.month.ledgerGenerated && d.month.bankBalanced && d.month.completionConfirmed && !d.month.posted;
     const postNote = E(postClosed.reasons.join(' '));
     return `
-      ${d.month.posted ? alertBox('ok', '本月已有定稿记录。正式预览不能再次写入正式四套账。含暂记往来的项目已在表内标明，不作为已齐备的审计附件。') : alertBox('info', postNote)}
+      ${d.month.posted ? alertBox('ok', identityProfile === 'official'
+        ? '本月已有定稿记录。本版本不写入正式四套账。含暂记往来的项目已在表内标明，不作为已齐备的审计附件。'
+        : '本月已有定稿记录。正式预览不能再次写入正式四套账。含暂记往来的项目已在表内标明，不作为已齐备的审计附件。') : alertBox('info', postNote)}
       ${previewOk ? '<button class="btn teal" id="preview-four" type="button">预览四套账（不定稿，不写入）</button>' : '<button class="btn teal" id="preview-four" type="button" disabled aria-disabled="true">预览四套账（不定稿，不写入）</button>'}
       ${previewOk ? '<button class="btn ghost" id="export-four" type="button">下载四套账草稿 CSV</button>' : '<button class="btn ghost" id="export-four" type="button" disabled aria-disabled="true">下载四套账草稿 CSV</button>'}
       <button class="btn amber" id="post-four" type="button" disabled aria-disabled="true">定稿并写入正式四套账</button>
@@ -1137,9 +1158,9 @@
       post.disabled = true;
       post.setAttribute('aria-disabled', 'true');
       const closed = (Rules && Rules.previewFormalPostClosed)
-        ? Rules.previewFormalPostClosed()
-        : { allowed: false, reasons: ['正式预览禁止财务定稿。'] };
-      showStatus(closed.reasons.join(' ') || '正式预览禁止财务定稿。', 'danger');
+        ? Rules.previewFormalPostClosed(undefined, identityProfile)
+        : { allowed: false, reasons: [identityProfile === 'official' ? '本版本未开放财务定稿。' : '正式预览禁止财务定稿。'] };
+      showStatus(closed.reasons.join(' ') || (identityProfile === 'official' ? '本版本未开放财务定稿。' : '正式预览禁止财务定稿。'), 'danger');
     });
   }
 
