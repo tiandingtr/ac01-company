@@ -422,9 +422,15 @@
     const monthLabel = d.currentYearMonth || ym(d.asOf) || '';
     const warns = (d.warnings || []).map((w) => `<li>${E(w.message)}</li>`).join('')
       || '<li class="muted">暂无跨月未完成两次以上的预警。</li>';
-    const planRows = (d.plansThisMonth || []).map((p) =>
-      `<tr><td>${E(p.type)}</td><td>${E(p.title)}</td><td>${E(p.planDate || '')}</td><td>${badge(p.status)}</td></tr>`
-    ).join('') || '<tr><td colspan="4" class="muted">本月尚未登记计划。</td></tr>';
+    const monthPlans = d.plansThisMonth || [];
+    const emptyPlanText = (Rules && Rules.monthPlanEmptyText)
+      ? Rules.monthPlanEmptyText(identityProfile, monthPlans)
+      : (monthPlans.length ? '' : '本月尚未登记计划。');
+    const planRows = emptyPlanText
+      ? `<tr><td colspan="4" class="muted">${E(emptyPlanText)}</td></tr>`
+      : monthPlans.map((p) =>
+        `<tr><td>${E(p.type)}</td><td>${E(p.title)}</td><td>${E(p.planDate || '')}</td><td>${badge(p.status)}</td></tr>`
+      ).join('');
     const m = d.month;
     const fin = m ? `${m.yearMonth} · 明细 ${m.lineCount} 条 · 已附 ${m.counts.已附原件} · 免原件 ${m.counts.免原件} · 暂记 ${m.counts.暂记往来} · 未处理 ${m.counts.未处理}<br>${m.ledgerGenerated ? (m.bankBalanced ? badge('银行侧已核对') : badge('未配平')) : badge('尚未生成明细账')} ${m.completionConfirmed ? badge('完成页已确认') : badge('未过完成页')} ${m.posted ? badge('已定稿') : badge('未定稿')}` : '尚未登记月账。';
     const cts = (d.contracts || []).map((c) => `<tr><td>${E(c.contractNo)}</td><td>${E(c.counterparty)}</td><td>${E(c.stage)}</td><td>${badge(c.status)}</td></tr>`).join('')

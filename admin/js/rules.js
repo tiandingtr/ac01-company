@@ -98,6 +98,28 @@
     return { allowed: reasons.length === 0, reasons: reasons };
   }
 
+  function isTestPlan_(plan) {
+    if (!plan || typeof plan !== 'object') return false;
+    if (plan.test === true || plan.isTest === true || plan.sample === true) return true;
+    if (plan.kind === 'test' || plan.dataClass === 'test' || plan.mode === 'test') return true;
+    var text = [plan.title, plan.notes, plan.type].map(function (value) {
+      return value == null ? '' : String(value);
+    }).join('\n');
+    return text.indexOf('测试') >= 0 || text.indexOf('虚构') >= 0;
+  }
+
+  /* Empty-state copy for this month's plans. Only the official identity excludes test rows. */
+  function monthPlanEmptyText(profile, plans) {
+    var list = plans || [];
+    if (profile === 'official') {
+      var live = list.some(function (plan) { return plan && !isTestPlan_(plan); });
+      if (!live) return '本月尚未登记正式计划（测试数据不计入）';
+      return '';
+    }
+    if (!list.length) return '本月尚未登记计划。';
+    return '';
+  }
+
   function stringOrEmpty(value) {
     return typeof value === 'string' ? value : '';
   }
@@ -361,6 +383,7 @@
     previewFormalPostClosed: previewFormalPostClosed,
     completionDecision: completionDecision,
     identityDecision: identityDecision,
+    monthPlanEmptyText: monthPlanEmptyText,
     describeRelease: describeRelease,
     PREVIEW_REPLAY: PREVIEW_REPLAY,
     previewReplayGate: previewReplayGate,
