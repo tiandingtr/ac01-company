@@ -880,8 +880,8 @@
         <h3>登记银行月结单（每账户一份）</h3>
         <form id="stmt-form">
           <div class="form-row">
-            <div class="field"><label>账户名称</label><input name="accountName" value="测试银行-港币往来（虚构）" required></div>
-            <div class="field"><label>账户代号</label><input name="accountId" value="TEST-BANK-HKD" required></div>
+            <div class="field"><label>账户名称</label><input name="accountName" value="${identityProfile === 'official' ? '' : '测试银行-港币往来（虚构）'}" required></div>
+            <div class="field"><label>账户代号</label><input name="accountId" value="${identityProfile === 'official' ? '' : 'TEST-BANK-HKD'}" required></div>
             <div class="field"><label>期初余额</label><input name="opening" type="number" step="0.01" required></div>
             <div class="field"><label>月结单期末余额</label><input name="closing" type="number" step="0.01" required></div>
             <div class="field"><label>月结单文件（可改认领已上传文件编号）</label><input name="file" type="file"></div>
@@ -1015,10 +1015,16 @@
       e.preventDefault();
       const btn = stmt.querySelector('button[type="submit"]');
       const fd = new FormData(stmt);
+      const accountName = String(fd.get('accountName') || '').trim();
+      const accountId = String(fd.get('accountId') || '').trim();
+      if (identityProfile === 'official' && (!accountName || !accountId)) {
+        showStatus('请填写账户名称和账户代号。', 'danger');
+        return;
+      }
       const payload = {
         yearMonth: selectedMonth,
-        accountName: fd.get('accountName'),
-        accountId: fd.get('accountId'),
+        accountName: accountName,
+        accountId: accountId,
         opening: Number(fd.get('opening')),
         closing: Number(fd.get('closing')),
         currency: 'HKD',
@@ -1223,7 +1229,7 @@
         <form id="ct-form">
           <div class="form-row">
             <div class="field"><label>合同号</label><input name="contractNo" placeholder="AC01-TEST-C-001"></div>
-            <div class="field"><label>对方名称（须为虚构测试名称）</label><input name="counterparty" required></div>
+            <div class="field"><label>${identityProfile === 'official' ? '对方名称' : '对方名称（须为虚构测试名称）'}</label><input name="counterparty" required></div>
             <div class="field"><label>类型</label><select name="type"><option>咨询技术</option><option>服务</option><option>销售</option><option>贸易</option></select></div>
             <div class="field"><label>金额</label><input name="amount" type="number" step="0.01" required></div>
             <div class="field"><label>首期金额</label><input name="firstAmount" type="number" step="0.01"></div>
