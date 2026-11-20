@@ -295,13 +295,15 @@
     location.replace((FS.adminBase ? FS.adminBase() : '/admin') + '/login.html');
   });
 
-  let historyRenderTicket = 0;
+  let historyRouteRendered = null;
+  function historyRoute() {
+    return location.pathname + location.search + location.hash;
+  }
   function renderFromHistory() {
-    const ticket = ++historyRenderTicket;
-    queueMicrotask(function () {
-      if (ticket !== historyRenderTicket) return;
-      render();
-    });
+    const route = historyRoute();
+    if (route === historyRouteRendered) return;
+    historyRouteRendered = route;
+    render();
   }
   window.addEventListener('popstate', renderFromHistory);
   window.addEventListener('hashchange', renderFromHistory);
