@@ -94,6 +94,48 @@ assertRefuse('other file name', { file: file({ name: 'invoice.pdf' }) }, 'file-n
 assertRefuse('other size', { file: file({ size: 1529 }) }, 'file-size');
 assertRefuse('other bytes', { file: file({ sha256: 'a'.repeat(64) }) }, 'file-hash');
 assertRefuse('missing file', { file: null }, 'file-missing');
+
+function refuseSession(name, data, reason) {
+  assertRefuse(name, { session: data }, reason);
+  assert.match(rules.previewReplayRefusal([reason]), /未向接口提交。/);
+}
+
+const noRelease = session();
+delete noRelease.release;
+refuseSession('no release', noRelease, 'release-missing');
+refuseSession('release null', session({ release: null }), 'release-missing');
+refuseSession('release string', session({ release: 'nope' }), 'release-missing');
+refuseSession('release array', session({ release: [] }), 'release-missing');
+refuseSession('release date', session({ release: new Date(0) }), 'release-missing');
+
+function releaseWithout(field) {
+  const release = { buildId: page.buildId, dataMode: page.dataMode, productionData: false };
+  delete release[field];
+  return release;
+}
+refuseSession('release missing buildId', session({ release: releaseWithout('buildId') }), 'release.buildId-missing');
+refuseSession('release missing dataMode', session({ release: releaseWithout('dataMode') }), 'release.dataMode-missing');
+refuseSession('release missing productionData', session({ release: releaseWithout('productionData') }), 'release.productionData-missing');
+
+function topWithout(field) {
+  const data = session();
+  delete data[field];
+  return data;
+}
+refuseSession('top missing buildId', topWithout('buildId'), 'buildId-missing');
+assert.ok(gate({ session: topWithout('buildId') }).reasons.includes('buildId'));
+refuseSession('top missing dataMode', topWithout('dataMode'), 'dataMode-missing');
+assert.ok(gate({ session: topWithout('dataMode') }).reasons.includes('dataMode'));
+refuseSession('top missing productionData', topWithout('productionData'), 'productionData-missing');
+assert.ok(gate({ session: topWithout('productionData') }).reasons.includes('productionData'));
+
+const blankReleaseBuild = gate({
+  session: session({ release: { buildId: '', dataMode: page.dataMode, productionData: false } })
+});
+assert.equal(blankReleaseBuild.ok, false);
+assert.ok(blankReleaseBuild.reasons.includes('release.buildId'));
+assert.equal(blankReleaseBuild.reasons.includes('release.buildId-missing'), false);
+assert.equal(gate().ok, true);
 assert.equal(rules.previewReplayRefusal(['file-name']).includes('文件名不是这条虚构资料'), true);
 assert.equal(rules.previewReplayRefusal(['productionData']).includes('不是正式预览或不是非生产数据'), true);
 

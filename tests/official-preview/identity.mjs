@@ -16,7 +16,7 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=' + BUILD + '-replay';
+const CACHE = '?v=ac01-official-preview-20261120-missingfields';
 
 const rules = require(path.join(root, 'admin/js/rules.js'));
 const expected = loadBuild();
@@ -68,11 +68,17 @@ assert.deepEqual(matched, { ok: true, reasons: [] }, 'exact official preview mus
 
 const withoutRelease = matchPayload();
 delete withoutRelease.release;
-assert.equal(decision(withoutRelease).ok, true, 'top-level identity is enough when release omits ids');
+assertReject('missing release object', withoutRelease, null, 'release-missing');
+assert.equal(decision(withoutRelease).reasons.includes('release.buildId-missing'), false);
 
 const releaseIdsOnly = matchPayload();
 releaseIdsOnly.release = { spreadsheetId: 'LOCAL-MOCK-SHEET', driveRootId: 'LOCAL-MOCK-DRIVE' };
-assert.equal(decision(releaseIdsOnly).ok, true, 'release spreadsheet ids alone must not false-reject');
+const idsOnly = decision(releaseIdsOnly);
+assert.equal(idsOnly.ok, false, 'release spreadsheet ids alone must not pass');
+for (const reason of ['release.buildId-missing', 'release.dataMode-missing', 'release.productionData-missing']) {
+  assert.ok(idsOnly.reasons.includes(reason), reason + ' in ' + idsOnly.reasons.join(','));
+}
+assert.equal(idsOnly.reasons.includes('release.buildId'), false);
 
 assertReject('retired simulated-test', matchPayload({
   buildId: OLD_BUILD,
@@ -91,6 +97,9 @@ assertReject('production data', matchPayload({
 }), null, 'production-data');
 assertReject('string false', matchPayload({ productionData: 'false' }), null, 'productionData');
 assertReject('missing production flag', matchPayload({ productionData: null }), null, 'productionData');
+assert.equal(decision(matchPayload({ productionData: null })).reasons.includes('productionData-missing'), false);
+assert.equal(decision(matchPayload({ buildId: '' })).reasons.includes('buildId-missing'), false);
+assert.ok(decision(matchPayload({ buildId: '' })).reasons.includes('buildId'));
 assertReject('missing payload', null, null, 'missing');
 assertReject('split release build', matchPayload({
   release: { buildId: OLD_BUILD, dataMode: MODE, productionData: false }
@@ -107,7 +116,7 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-preview-20261119-replay');
+assert.equal(CACHE, '?v=ac01-official-preview-20261120-missingfields');
 assert.ok(read('admin/index.html').includes('页面契约 ' + BUILD));
 assert.equal(read('admin/index.html').includes('?v=' + BUILD + '"'), false);
 
@@ -153,7 +162,8 @@ for (const rel of ['admin/index.html', 'admin/login.html']) {
 const app = read('admin/js/app.js');
 assert.ok(app.includes('Rules.identityDecision(data, window.AC01_BUILD || {})'));
 assert.ok(app.includes('if (!decision.ok)'));
-assert.ok(app.includes('if (!releaseAccepted)'));
+assert.ok(app.includes("releaseState !== 'accepted'"));
+assert.equal(app.includes('if (!releaseAccepted)'), false);
 assert.equal(app.includes('simulated-test'), false);
 assert.equal(app.includes(OLD_BUILD), false);
 assert.ok(app.includes('对客正式合同生成已关闭'));

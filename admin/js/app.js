@@ -27,6 +27,13 @@
     'release.productionData': true,
     'release-production-mode': true,
     'release-production-data': true,
+    'release-missing': true,
+    'release.buildId-missing': true,
+    'release.dataMode-missing': true,
+    'release.productionData-missing': true,
+    'buildId-missing': true,
+    'dataMode-missing': true,
+    'productionData-missing': true,
     'missing-check': true
   };
   const PAGE_ERROR_CODES = {
