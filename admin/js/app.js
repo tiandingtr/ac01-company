@@ -88,6 +88,8 @@
   function viewErrorText(err) {
     const message = err && err.message ? String(err.message) : '读取没有完成。';
     const code = err && err.code ? String(err.code) : '';
+    const closed = Rules && Rules.previewReplayClosedText && Rules.previewReplayClosedText(code);
+    if (closed) return closed;
     if (!err || PAGE_ERROR_CODES[code] || err.intent === 'read' || err.intent === 'write' || err.intent === 'login') {
       return message;
     }

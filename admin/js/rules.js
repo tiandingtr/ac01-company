@@ -293,6 +293,10 @@
     relatedId: 'PL-MWN92TMG60CBO9'
   };
 
+  function previewReplayClosedText(code) {
+    return code === 'PREVIEW_REPLAY_CLOSED' ? '正式环境不开放虚构资料重放' : '';
+  }
+
   function previewReplayGate(input) {
     input = input || {};
     var reasons = [];
@@ -387,6 +391,7 @@
     describeRelease: describeRelease,
     PREVIEW_REPLAY: PREVIEW_REPLAY,
     previewReplayGate: previewReplayGate,
+    previewReplayClosedText: previewReplayClosedText,
     previewReplayRefusal: previewReplayRefusal,
     previewReplayVerdict: previewReplayVerdict,
     previewReplayText: previewReplayText

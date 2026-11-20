@@ -151,6 +151,10 @@ const officialGate = gate({ session: officialSession, page: page });
 assert.equal(officialGate.ok, false, JSON.stringify(officialGate.reasons));
 assert.equal(officialGate.request, null);
 assert.ok(officialGate.reasons.includes('productionData'));
+assert.equal(rules.previewReplayClosedText('PREVIEW_REPLAY_CLOSED'), '正式环境不开放虚构资料重放');
+assert.equal(rules.previewReplayClosedText('OTHER'), '');
+assert.equal(rules.previewReplayClosedText(''), '');
+assert.ok(read('admin/js/app.js').includes('previewReplayClosedText(code)'));
 assert.equal(gate({ session: officialSession, page: officialPage }).ok, false);
 assert.ok(gate({ session: officialSession, page: officialPage }).reasons.includes('productionData'));
 assertRefuse('mixed top fields', {
