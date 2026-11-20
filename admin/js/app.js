@@ -295,8 +295,16 @@
     location.replace((FS.adminBase ? FS.adminBase() : '/admin') + '/login.html');
   });
 
-  window.addEventListener('popstate', () => { render(); });
-  window.addEventListener('hashchange', () => { render(); });
+  let historyRenderTicket = 0;
+  function renderFromHistory() {
+    const ticket = ++historyRenderTicket;
+    queueMicrotask(function () {
+      if (ticket !== historyRenderTicket) return;
+      render();
+    });
+  }
+  window.addEventListener('popstate', renderFromHistory);
+  window.addEventListener('hashchange', renderFromHistory);
   document.getElementById('nav').addEventListener('click', (e) => {
     const a = e.target.closest('a');
     if (!a) return;
