@@ -16,8 +16,8 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=ac01-official-20261120-compat5';
-const LOGIN_CACHE = '?v=ac01-official-20261120-compat3';
+const CACHE = '?v=ac01-official-20261120-compat6';
+const LOGIN_CACHE = '?v=ac01-official-20261120-compat6';
 const OFFICIAL_BUILD = 'ac01-official-20261120';
 const OFFICIAL_MODE = 'official';
 
@@ -166,7 +166,8 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-20261120-compat5');
+assert.equal(CACHE, '?v=ac01-official-20261120-compat6');
+assert.equal(LOGIN_CACHE, CACHE);
 assert.ok(read('admin/js/build.js').includes(OFFICIAL_BUILD));
 assert.ok(read('admin/js/build.js').includes("productionData: true"));
 assert.ok(read('admin/js/app.js').includes("decision.profile === 'official'"));
@@ -208,9 +209,10 @@ assert.equal(indexHtml.includes('正式预览'), false);
 assert.equal(indexHtml.includes('ac01-official-preview-20261119'), false);
 const loginHtml = read('admin/login.html');
 assert.equal(loginHtml.includes('正在确认身份…'), false);
-assert.ok(loginHtml.includes('此为正式预览，不是真实运营。授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。'));
-assert.ok(loginHtml.includes('此为正式预览，不是真实运营。授权失败即拒绝，不会放宽鉴权。'));
-assert.ok(loginHtml.includes('本入口只连接本项目的正式预览接口，不是真实运营。请勿在页面或聊天中保存口令。'));
+assert.equal(loginHtml.includes('正式预览'), false);
+assert.ok(loginHtml.includes('AC01 管理后台登录。授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。'));
+assert.ok(loginHtml.includes('请使用分配的账号登录。授权失败即拒绝，不会放宽鉴权。'));
+assert.ok(loginHtml.includes('请使用分配的账号登录。请勿在页面或聊天中保存口令。'));
 for (const rel of ['admin/index.html']) {
   const html = read(rel);
   const refs = [...html.matchAll(/\b(?:src|href)="([^"]+\.(?:js|css)[^"]*)"/g)].map((m) => m[1]);
@@ -288,9 +290,6 @@ assert.ok(app.includes("identityProfile === 'official' ? '' : '测试银行-港�
 assert.ok(app.includes("identityProfile === 'official' ? '' : 'TEST-BANK-HKD'"));
 assert.ok(app.includes("identityProfile === 'official' && (!accountName || !accountId)"));
 assert.ok(app.includes("identityProfile === 'official' ? '对方名称' : '对方名称（须为虚构测试名称）'"));
-assert.ok(loginHtml.includes('正式预览，不是真实运营'));
-assert.equal((loginHtml.match(/正式预览，不是真实运营/g) || []).length, 2);
-assert.ok(loginHtml.includes('本入口只连接本项目的正式预览接口，不是真实运营。'));
 assert.equal(read('admin/js/rules.js').includes('isTestPlan_'), false);
 assert.ok(app.includes('function applyRejectedChrome'));
 assert.ok(app.includes('applyRejectedChrome()'));
