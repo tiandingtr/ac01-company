@@ -295,8 +295,18 @@
     location.replace((FS.adminBase ? FS.adminBase() : '/admin') + '/login.html');
   });
 
-  window.addEventListener('popstate', () => { render(); });
-  window.addEventListener('hashchange', () => { render(); });
+  let historyRouteRendered = null;
+  function historyRoute() {
+    return location.pathname + location.search + location.hash;
+  }
+  function renderFromHistory() {
+    const route = historyRoute();
+    if (route === historyRouteRendered) return;
+    historyRouteRendered = route;
+    render();
+  }
+  window.addEventListener('popstate', renderFromHistory);
+  window.addEventListener('hashchange', renderFromHistory);
   document.getElementById('nav').addEventListener('click', (e) => {
     const a = e.target.closest('a');
     if (!a) return;
