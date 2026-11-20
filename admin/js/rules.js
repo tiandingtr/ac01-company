@@ -113,16 +113,26 @@
       reasons.push('missing');
       return { ok: false, reasons: reasons };
     }
+    if (!Object.prototype.hasOwnProperty.call(data, 'buildId')) reasons.push('buildId-missing');
     if (data.buildId !== expected.buildId) reasons.push('buildId');
+    if (!Object.prototype.hasOwnProperty.call(data, 'dataMode')) reasons.push('dataMode-missing');
     if (data.dataMode !== expected.dataMode) reasons.push('dataMode');
+    if (!Object.prototype.hasOwnProperty.call(data, 'productionData')) reasons.push('productionData-missing');
     if (data.productionData !== false) reasons.push('productionData');
     if (data.dataMode === 'production') reasons.push('production-mode');
     if (data.productionData === true) reasons.push('production-data');
     var release = data.release;
-    if (release && typeof release === 'object') {
-      if (Object.prototype.hasOwnProperty.call(release, 'buildId') && release.buildId !== expected.buildId) reasons.push('release.buildId');
-      if (Object.prototype.hasOwnProperty.call(release, 'dataMode') && release.dataMode !== expected.dataMode) reasons.push('release.dataMode');
-      if (Object.prototype.hasOwnProperty.call(release, 'productionData') && release.productionData !== false) reasons.push('release.productionData');
+    var releaseProto = release && typeof release === 'object' ? Object.getPrototypeOf(release) : null;
+    var releaseIsPlain = !!release && typeof release === 'object' && !Array.isArray(release) && (releaseProto === Object.prototype || releaseProto === null);
+    if (!releaseIsPlain) {
+      reasons.push('release-missing');
+    } else {
+      if (!Object.prototype.hasOwnProperty.call(release, 'buildId')) reasons.push('release.buildId-missing');
+      else if (release.buildId !== expected.buildId) reasons.push('release.buildId');
+      if (!Object.prototype.hasOwnProperty.call(release, 'dataMode')) reasons.push('release.dataMode-missing');
+      else if (release.dataMode !== expected.dataMode) reasons.push('release.dataMode');
+      if (!Object.prototype.hasOwnProperty.call(release, 'productionData')) reasons.push('release.productionData-missing');
+      else if (release.productionData !== false) reasons.push('release.productionData');
       if (release.dataMode === 'production') reasons.push('release-production-mode');
       if (release.productionData === true) reasons.push('release-production-data');
     }
@@ -221,7 +231,14 @@
       'file-name': '文件名不是这条虚构资料。',
       'file-size': '文件大小不是 1528 字节。',
       'file-hash': '文件内容不是这条虚构资料。',
-      role: '当前角色不能重放。'
+      role: '当前角色不能重放。',
+      'release-missing': '接口没有返回 release 对象。',
+      'release.buildId-missing': 'release 缺少 buildId。',
+      'release.dataMode-missing': 'release 缺少 dataMode。',
+      'release.productionData-missing': 'release 缺少 productionData。',
+      'buildId-missing': '接口缺少 buildId。',
+      'dataMode-missing': '接口缺少 dataMode。',
+      'productionData-missing': '接口缺少 productionData。'
     };
     var parts = [];
     var environment = false;
