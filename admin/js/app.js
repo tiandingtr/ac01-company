@@ -9,7 +9,7 @@
   let releaseState = 'pending';
   let releaseReasons = [];
   let identityProfile = '';
-  const RELEASE_REJECTED = '已拒绝：接口身份与本页正式预览契约不一致。错版、错误环境或生产数据都不会继续读取业务数据。';
+  const RELEASE_REJECTED = '已拒绝：接口身份与本页不一致。';
   const IDENTITY_PENDING = '正在核对接口身份…';
   const READ_SLOW_MS = 8000;
   const READ_LIMIT_MS = 20000;
@@ -291,9 +291,16 @@
       applyOfficialChrome();
       return;
     }
-    if (decision && decision.ok && decision.profile === 'preview') applyPreviewChrome();
+    if (!decision || !decision.ok) {
+      const buildId = data && data.buildId ? String(data.buildId) : '未返回';
+      const dataMode = data && data.dataMode ? String(data.dataMode) : '未返回';
+      const flag = data && Object.prototype.hasOwnProperty.call(data, 'productionData') ? String(data.productionData) : '未返回';
+      marker.textContent = buildId + ' · ' + dataMode + ' · ' + flag + ' · 已拒绝';
+      return;
+    }
+    if (decision.profile === 'preview') applyPreviewChrome();
     const head = (data && data.buildId || '未返回') + ' · ' + (data && data.dataMode || '未返回') + ' · ' + (data && data.productionData === false ? '非生产数据' : 'productionData 不是 false');
-    marker.textContent = decision.ok ? (head + ' · 正式预览') : (head + ' · 已拒绝');
+    marker.textContent = head + ' · 正式预览';
   }
 
   async function boot() {

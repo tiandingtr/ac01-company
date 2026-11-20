@@ -16,7 +16,8 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=ac01-official-20261120-compat3';
+const CACHE = '?v=ac01-official-20261120-compat4';
+const LOGIN_CACHE = '?v=ac01-official-20261120-compat3';
 const OFFICIAL_BUILD = 'ac01-official-20261120';
 const OFFICIAL_MODE = 'official';
 
@@ -165,7 +166,7 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-20261120-compat3');
+assert.equal(CACHE, '?v=ac01-official-20261120-compat4');
 assert.ok(read('admin/js/build.js').includes(OFFICIAL_BUILD));
 assert.ok(read('admin/js/build.js').includes("productionData: true"));
 assert.ok(read('admin/js/app.js').includes("decision.profile === 'official'"));
@@ -210,7 +211,7 @@ assert.equal(loginHtml.includes('正在确认身份…'), false);
 assert.ok(loginHtml.includes('此为正式预览，不是真实运营。授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。'));
 assert.ok(loginHtml.includes('此为正式预览，不是真实运营。授权失败即拒绝，不会放宽鉴权。'));
 assert.ok(loginHtml.includes('本入口只连接本项目的正式预览接口，不是真实运营。请勿在页面或聊天中保存口令。'));
-for (const rel of ['admin/index.html', 'admin/login.html']) {
+for (const rel of ['admin/index.html']) {
   const html = read(rel);
   const refs = [...html.matchAll(/\b(?:src|href)="([^"]+\.(?:js|css)[^"]*)"/g)].map((m) => m[1]);
   assert.ok(refs.length > 0, rel + ' should reference assets');
@@ -218,6 +219,9 @@ for (const rel of ['admin/index.html', 'admin/login.html']) {
     assert.ok(ref.endsWith(CACHE), rel + ' asset is not cache-busted: ' + ref);
     assert.equal(ref.includes(OLD_BUILD), false, ref);
   }
+}
+for (const ref of [...loginHtml.matchAll(/\b(?:src|href)="([^"]+\.(?:js|css)[^"]*)"/g)].map((m) => m[1])) {
+  assert.ok(ref.endsWith(LOGIN_CACHE), 'login asset cache must stay: ' + ref);
 }
 
 const app = read('admin/js/app.js');
@@ -265,6 +269,21 @@ assert.equal(rules.monthPlanEmptyText('preview', []), '本月尚未登记计划�
 assert.equal(rules.monthPlanEmptyText('preview', [{ title: '测试开户' }]), '');
 assert.equal(rules.monthPlanEmptyText('', []), '本月尚未登记计划。');
 assert.equal(rules.monthPlanEmptyText(undefined, []), '本月尚未登记计划。');
+assert.equal(app.includes("const RELEASE_REJECTED = '已拒绝：接口身份与本页不一致。'"), true);
+assert.equal(app.includes('正式预览契约不一致'), false);
+function renderedRejection(name, data, page) {
+  const out = decision(data, page);
+  assert.equal(out.ok, false, name);
+  const text = '已拒绝：接口身份与本页不一致。 原因：' + out.reasons.join('、');
+  assert.equal(text.includes('正式预览'), false, name + ' ' + text);
+}
+renderedRejection('rejected preview mismatch', matchPayload({ buildId: 'ac01-official-preview-20261118' }));
+renderedRejection('rejected official mismatch', officialPayload({ buildId: 'ac01-official-20261119' }));
+const rejectedMarker = app.slice(app.indexOf('if (!decision || !decision.ok)'), app.indexOf("decision.profile === 'preview'"));
+assert.ok(rejectedMarker.includes('已拒绝'));
+assert.equal(rejectedMarker.includes('非生产数据'), false);
+assert.ok(app.includes("data && data.productionData === false ? '非生产数据' : 'productionData 不是 false'"));
+assert.ok(app.includes("head + ' · 正式预览'"));
 assert.equal(read('admin/js/rules.js').includes('isTestPlan_'), false);
 assert.ok(app.includes('function applyRejectedChrome'));
 assert.ok(app.includes('applyRejectedChrome()'));
