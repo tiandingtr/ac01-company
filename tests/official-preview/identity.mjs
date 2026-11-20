@@ -16,7 +16,9 @@ const MODE = 'official-preview';
 const NEW_EXEC = 'https://script.google.com/macros/s/AKfycbykvdLhq8RlBZUJ0ZSMF89Znpu5uwz7NvwwtlfDmAWsSyFq5bkvOI3DmeRvi7GqbRuC/exec';
 const OLD_EXEC = 'https://script.google.com/macros/s/AKfycbxInAhNPwDBpIRBc4u82DZvFnc0XidYya_Eo_7TRHiIrrweslj3Od4LmTFzMGIz58PQ/exec';
 const OLD_BUILD = 'ac01-sim-test-20261118';
-const CACHE = '?v=ac01-official-preview-20261120-missingfields';
+const CACHE = '?v=ac01-official-20261120-compat';
+const OFFICIAL_BUILD = 'ac01-official-20261120';
+const OFFICIAL_MODE = 'official';
 
 const rules = require(path.join(root, 'admin/js/rules.js'));
 const expected = loadBuild();
@@ -64,7 +66,54 @@ function assertReject(name, data, page, reason) {
 }
 
 const matched = decision(matchPayload());
-assert.deepEqual(matched, { ok: true, reasons: [] }, 'exact official preview must not be reported as a mismatch');
+assert.equal(matched.ok, true, JSON.stringify(matched));
+assert.deepEqual(matched.reasons, []);
+assert.equal(matched.profile, 'preview');
+
+function officialPayload(extra) {
+  return matchPayload(Object.assign({
+    buildId: OFFICIAL_BUILD,
+    dataMode: OFFICIAL_MODE,
+    productionData: true,
+    release: {
+      buildId: OFFICIAL_BUILD,
+      dataMode: OFFICIAL_MODE,
+      productionData: true,
+      spreadsheetId: 'LOCAL-MOCK-SHEET',
+      driveRootId: 'LOCAL-MOCK-DRIVE'
+    }
+  }, extra || {}));
+}
+const official = decision(officialPayload());
+assert.equal(official.ok, true, JSON.stringify(official));
+assert.equal(official.profile, 'official');
+assert.equal(decision(officialPayload(), {
+  buildId: OFFICIAL_BUILD,
+  dataMode: OFFICIAL_MODE,
+  productionData: true
+}).ok, true);
+
+const mixes = [
+  ['preview build, official mode, preview flag', BUILD, OFFICIAL_MODE, false, 'dataMode'],
+  ['preview build, preview mode, official flag', BUILD, MODE, true, 'productionData'],
+  ['official build, preview mode, official flag', OFFICIAL_BUILD, MODE, true, 'dataMode'],
+  ['official build, official mode, preview flag', OFFICIAL_BUILD, OFFICIAL_MODE, false, 'productionData']
+];
+for (const mix of mixes) {
+  const body = matchPayload({
+    buildId: mix[1],
+    dataMode: mix[2],
+    productionData: mix[3],
+    release: { buildId: mix[1], dataMode: mix[2], productionData: mix[3] }
+  });
+  assertReject(mix[0], body, null, mix[4]);
+}
+assertReject('top preview release official', matchPayload({
+  release: { buildId: OFFICIAL_BUILD, dataMode: OFFICIAL_MODE, productionData: true }
+}), null, 'release.buildId');
+assertReject('top official release preview', officialPayload({
+  release: { buildId: BUILD, dataMode: MODE, productionData: false }
+}), null, 'release.buildId');
 
 const withoutRelease = matchPayload();
 delete withoutRelease.release;
@@ -116,7 +165,11 @@ assertReject('page expects production', matchPayload(), {
 }, 'page-productionData');
 
 assert.deepEqual(JSON.parse(JSON.stringify(expected)), { buildId: BUILD, dataMode: MODE, productionData: false });
-assert.equal(CACHE, '?v=ac01-official-preview-20261120-missingfields');
+assert.equal(CACHE, '?v=ac01-official-20261120-compat');
+assert.ok(read('admin/js/build.js').includes(OFFICIAL_BUILD));
+assert.ok(read('admin/js/build.js').includes("productionData: true"));
+assert.ok(read('admin/js/app.js').includes("decision.profile === 'official'"));
+assert.ok(read('admin/js/app.js').includes('正式数据'));
 assert.ok(read('admin/index.html').includes('页面契约 ' + BUILD));
 assert.equal(read('admin/index.html').includes('?v=' + BUILD + '"'), false);
 

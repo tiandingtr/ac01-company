@@ -136,6 +136,25 @@ assert.equal(blankReleaseBuild.ok, false);
 assert.ok(blankReleaseBuild.reasons.includes('release.buildId'));
 assert.equal(blankReleaseBuild.reasons.includes('release.buildId-missing'), false);
 assert.equal(gate().ok, true);
+const officialPage = { buildId: 'ac01-official-20261120', dataMode: 'official', productionData: true };
+const officialSession = session({
+  buildId: officialPage.buildId,
+  dataMode: officialPage.dataMode,
+  productionData: true,
+  release: {
+    buildId: officialPage.buildId,
+    dataMode: officialPage.dataMode,
+    productionData: true
+  }
+});
+assert.equal(gate({ session: officialSession, page: page }).ok, true, JSON.stringify(gate({ session: officialSession, page: page }).reasons));
+assert.equal(gate({ session: officialSession, page: officialPage }).ok, true);
+assertRefuse('mixed top fields', {
+  session: session({ dataMode: 'official', release: { buildId: page.buildId, dataMode: 'official', productionData: false } })
+}, 'dataMode');
+assertRefuse('top preview release official', {
+  session: session({ release: { buildId: officialPage.buildId, dataMode: officialPage.dataMode, productionData: true } })
+}, 'release.buildId');
 assert.equal(rules.previewReplayRefusal(['file-name']).includes('文件名不是这条虚构资料'), true);
 assert.equal(rules.previewReplayRefusal(['productionData']).includes('不是正式预览或不是非生产数据'), true);
 

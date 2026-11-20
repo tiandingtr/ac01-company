@@ -251,9 +251,23 @@
     return `<div class="alert ${type}">${html}</div>`;
   }
 
+  function applyOfficialChrome() {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = '<span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span><span>财务定稿已关闭 · 对客正式合同生成已关闭</span>';
+    }
+    const foot = document.querySelector('.side .foot');
+    if (foot) foot.textContent = '一户一套：一本独立表、一个专属文件夹、一套接口。期初待确认，禁止正式记账。财务定稿已关闭。';
+  }
+
   function applyReleaseMarker(data, decision) {
     const marker = document.getElementById('build-marker');
     if (!marker) return;
+    if (decision && decision.ok && decision.profile === 'official') {
+      marker.textContent = (data && data.buildId || '未返回') + ' · ' + (data && data.dataMode || '未返回') + ' · 正式数据';
+      applyOfficialChrome();
+      return;
+    }
     const head = (data && data.buildId || '未返回') + ' · ' + (data && data.dataMode || '未返回') + ' · ' + (data && data.productionData === false ? '非生产数据' : 'productionData 不是 false');
     marker.textContent = decision.ok ? (head + ' · 正式预览') : (head + ' · 已拒绝');
   }
@@ -286,9 +300,15 @@
       whoEl.textContent = `${me.displayName} · ${me.role} · ${me.jobId}`;
       const gate = document.getElementById('gate-note');
       if (gate) {
-        gate.textContent = data.openingConfirmed
-          ? '正式预览，不是真实运营。期初已确认。财务定稿已关闭，不因配平或完成页放行。对客正式合同生成已关闭。'
-          : '正式预览，不是真实运营。期初待确认，禁止正式记账。财务定稿已关闭。对客正式合同生成已关闭。';
+        if (decision.profile === 'official') {
+          gate.textContent = data.openingConfirmed
+            ? '期初已确认。财务定稿已关闭，不因配平或完成页放行。对客正式合同生成已关闭。'
+            : '期初待确认，禁止正式记账。财务定稿已关闭。对客正式合同生成已关闭。';
+        } else {
+          gate.textContent = data.openingConfirmed
+            ? '正式预览，不是真实运营。期初已确认。财务定稿已关闭，不因配平或完成页放行。对客正式合同生成已关闭。'
+            : '正式预览，不是真实运营。期初待确认，禁止正式记账。财务定稿已关闭。对客正式合同生成已关闭。';
+        }
       }
       await render();
     } catch (e) {
