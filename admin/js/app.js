@@ -1,13 +1,91 @@
 /* AC01 Tianding operations admin — single gated shell. Data only from /api. */
 (function () {
-  const { api, escapeHtml: E, badge } = FS;
+  const { api: requestApi, escapeHtml: E, badge } = FS;
   const viewEl = document.getElementById('view');
   const titleEl = document.getElementById('title');
   const whoEl = document.getElementById('who');
   let me = null;
   let signedSession = null;
-  let releaseAccepted = false;
+  let releaseState = 'pending';
+  let releaseReasons = [];
   const RELEASE_REJECTED = '已拒绝：接口身份与本页正式预览契约不一致。错版、错误环境或生产数据都不会继续读取业务数据。';
+  const IDENTITY_PENDING = '正在核对接口身份…';
+  const READ_SLOW_MS = 8000;
+  const READ_LIMIT_MS = 20000;
+  const IDENTITY_REASON_CODES = {
+    'page-build': true,
+    'page-dataMode': true,
+    'page-productionData': true,
+    missing: true,
+    buildId: true,
+    dataMode: true,
+    productionData: true,
+    'production-mode': true,
+    'production-data': true,
+    'release.buildId': true,
+    'release.dataMode': true,
+    'release.productionData': true,
+    'release-production-mode': true,
+    'release-production-data': true,
+    'missing-check': true
+  };
+  const PAGE_ERROR_CODES = {
+    TIMEOUT: true,
+    NETWORK: true,
+    BAD_RESPONSE: true,
+    UPLOAD_NOT_ON_LEDGER: true,
+    UPLOAD_AMBIGUOUS: true,
+    UPLOAD_RECONCILE_FAILED: true,
+    AUTH_STORE_MISSING: true
+  };
+
+  /* api.js stops its timer when fetch() resolves, before res.json().
+   * A slow body would otherwise leave the view on “正在读取…”. */
+  function api(action, payload, file) {
+    const requested = payload && Number(payload.__timeoutMs);
+    const timeoutMs = requested > 0 ? requested : READ_LIMIT_MS;
+    let timer = null;
+    const timed = new Promise(function (_, reject) {
+      timer = setTimeout(function () {
+        const read = FS.isReadAction ? FS.isReadAction(action) : false;
+        const err = new Error(read
+          ? '读取超时，列表没有载入。请稍后重新打开本页。这次失败只表示没有读到数据。'
+          : '请求超时，接口没有返回写入结果。请先核对列表里是否已有这次记录，不要立刻再次提交。');
+        err.code = 'TIMEOUT';
+        err.intent = read ? 'read' : 'write';
+        err.action = action || '';
+        reject(err);
+      }, timeoutMs);
+    });
+    const request = Promise.resolve(requestApi(action, payload, file)).finally(function () {
+      clearTimeout(timer);
+    });
+    return Promise.race([request, timed]);
+  }
+
+  function visibleIdentityReasons(reasons) {
+    const out = [];
+    (Array.isArray(reasons) ? reasons : []).forEach(function (reason) {
+      const code = IDENTITY_REASON_CODES[reason] ? String(reason) : 'other';
+      if (out.indexOf(code) < 0) out.push(code);
+    });
+    if (!out.length) out.push('other');
+    return out;
+  }
+
+  function rejectionText() {
+    return RELEASE_REJECTED + ' 原因：' + visibleIdentityReasons(releaseReasons).join('、');
+  }
+
+  function viewErrorText(err) {
+    const message = err && err.message ? String(err.message) : '读取没有完成。';
+    const code = err && err.code ? String(err.code) : '';
+    if (!err || PAGE_ERROR_CODES[code] || err.intent === 'read' || err.intent === 'write' || err.intent === 'login') {
+      return message;
+    }
+    if (err.status || code) return '接口返回错误：' + message;
+    return message;
+  }
   let financeTab = 'statements';
   let selectedMonth = '';
   let asOf = '';
@@ -117,7 +195,7 @@
     try {
       return await fn();
     } catch (err) {
-      showStatus(err && err.message ? err.message : '提交失败。', 'danger');
+      showStatus(viewErrorText(err), 'danger');
       return null;
     } finally {
       if (btn.isConnected) {
@@ -187,12 +265,14 @@
         targets.textContent = described.text;
       }
       if (!decision.ok) {
-        releaseAccepted = false;
-        showStatus(RELEASE_REJECTED, 'danger');
-        viewEl.innerHTML = alertBox('danger', E(RELEASE_REJECTED));
+        releaseState = 'rejected';
+        releaseReasons = decision.reasons || [];
+        showStatus(rejectionText(), 'danger');
+        viewEl.innerHTML = alertBox('danger', E(rejectionText()));
         return;
       }
-      releaseAccepted = true;
+      releaseState = 'accepted';
+      releaseReasons = [];
       signedSession = data;
       me = data.user;
       asOf = data.asOf || '';
@@ -241,16 +321,30 @@
     location.href = '../index.html';
   });
 
+  function showIdentityPending() {
+    viewEl.innerHTML = alertBox('info', E(IDENTITY_PENDING));
+  }
+
   async function render() {
     const view = currentView();
     setNav(view);
-    if (!releaseAccepted) {
-      viewEl.innerHTML = alertBox('danger', E(RELEASE_REJECTED));
+    if (releaseState === 'pending') {
+      showIdentityPending();
+      return;
+    }
+    if (releaseState !== 'accepted') {
+      viewEl.innerHTML = alertBox('danger', E(rejectionText()));
       return;
     }
     clearStaleDanger();
     const token = ++renderToken;
-    viewEl.innerHTML = '<p class="muted" role="status">正在读取…</p>';
+    viewEl.innerHTML = '<p class="muted" role="status" data-read-state="loading">正在读取…</p>';
+    const slowTimer = setTimeout(function () {
+      if (!alive(token)) return;
+      const node = viewEl.querySelector('[data-read-state="loading"]');
+      if (!node) return;
+      node.textContent = '仍在读取。这一步有时要将近 20 秒，请稍候。';
+    }, READ_SLOW_MS);
     try {
       if (view === 'dashboard') await renderDashboard(token);
       else if (view === 'plans') await renderPlans(token);
@@ -259,10 +353,17 @@
       else if (view === 'finance') await renderFinance(token);
       else if (view === 'contracts') await renderContracts(token);
       else if (view === 'logs') await renderLogs(token);
+      if (!alive(token)) return;
+      const stillLoading = viewEl.querySelector('[data-read-state="loading"]');
+      if (stillLoading) {
+        viewEl.innerHTML = alertBox('danger', E('读取没有完成。请稍后重新打开本页。'));
+      }
     } catch (e) {
       if (!alive(token)) return;
       if (e.status === 401) return location.replace((FS.adminBase ? FS.adminBase() : '/admin') + '/login.html');
-      viewEl.innerHTML = alertBox('danger', E(e.message));
+      viewEl.innerHTML = alertBox('danger', E(viewErrorText(e)));
+    } finally {
+      clearTimeout(slowTimer);
     }
   }
 
@@ -578,7 +679,7 @@
           const verdict = Rules.previewReplayVerdict(out);
           showReplay(Rules.previewReplayText(verdict), verdict.ok ? 'ok' : 'danger');
         } catch (err) {
-          showReplay((err && err.message) ? err.message : '重放没有完成。已停止，没有再次提交。', 'danger');
+          showReplay(err ? viewErrorText(err) : '重放没有完成。已停止，没有再次提交。', 'danger');
         } finally {
           if (btn.isConnected) {
             btn.dataset.busy = '0';
@@ -1233,5 +1334,6 @@
     });
   }
 
+  showIdentityPending();
   boot();
 })();
