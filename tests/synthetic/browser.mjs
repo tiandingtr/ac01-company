@@ -110,7 +110,7 @@ await page.waitForFunction(() => document.querySelector('#who') && document.quer
 const gate = await page.$eval('#gate-note', (el) => el.textContent);
 rec('R1', 'SYN-R1-GATE-VISIBLE', {}, '期初待确认', gate, gate.indexOf('期初待确认') >= 0 && gate.indexOf('禁止正式记账') >= 0);
 const buildText = await page.$eval('#build-marker', (el) => el.textContent);
-rec('R1', 'SYN-R1-BUILD-MARKER', {}, 'ac01-sim-test-20261118 simulated-test', buildText, buildText.indexOf('ac01-sim-test-20261118') >= 0 && buildText.indexOf('simulated-test') >= 0 && buildText.indexOf('非生产') >= 0);
+rec('R1', 'SYN-R1-BUILD-MARKER', {}, '已与接口核对身份', buildText, buildText === '已与接口核对身份');
 const observed = await page.evaluate(async () => {
   const me = await FS.api('me');
   const shown = document.querySelector('#target-marker').textContent;
@@ -123,7 +123,7 @@ const observed = await page.evaluate(async () => {
     calls: 'me only'
   };
 });
-rec('R1', 'SYN-R1-TARGETS-FROM-ME', { source: 'me.release' }, 'DOM echoes response ids', observed, observed.state === 'observed' && observed.sheet && observed.drive && observed.shown.indexOf(observed.sheet) >= 0 && observed.shown.indexOf(observed.drive) >= 0 && observed.shown.indexOf('本次 me.release') >= 0);
+rec('R1', 'SYN-R1-TARGETS-FROM-ME', { source: 'me.release' }, 'DOM echoes response ids', observed, observed.state === 'observed' && observed.sheet && observed.drive && observed.shown.indexOf(observed.sheet) >= 0 && observed.shown.indexOf(observed.drive) >= 0 && observed.shown.indexOf('本次登录') >= 0);
 await shot(page, 'r1-targets-desktop.png');
 await shot(page, 'r1-dashboard-desktop.png');
 
@@ -158,7 +158,7 @@ await page.waitForFunction(() => document.querySelector('#who') && document.quer
 await page.click('#nav a[data-view="contracts"]');
 await page.waitForFunction(() => document.querySelector('#view') && document.querySelector('#view').textContent.indexOf('不是订单') >= 0);
 const orderGap = await page.$eval('#view', (el) => el.textContent);
-rec('R3', 'SYN-R3-UI-ORDER-GAP', {}, '合同不是订单', orderGap.indexOf('不是订单') >= 0, orderGap.indexOf('不是订单') >= 0 && orderGap.indexOf('模拟/草稿 非正式凭证') >= 0);
+rec('R3', 'SYN-R3-UI-ORDER-GAP', {}, '合同不是订单', orderGap.indexOf('不是订单') >= 0, orderGap.indexOf('不是订单') >= 0 && orderGap.indexOf('草稿（未定稿）') >= 0);
 await shot(page, 'r3-contracts-order-gap.png');
 
 await fetch(base + '/__test/delay', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ savePlan: 700 }) });

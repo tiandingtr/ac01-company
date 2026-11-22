@@ -46,6 +46,16 @@ const server = http.createServer(async (req, res) => {
       delete payload.__delayMs;
       if (wait) await new Promise((r) => setTimeout(r, wait));
       const out = call(engine, body.token || '', body.action, payload, body.file || null);
+      if (body.action === 'me' && out.ok && out.data) {
+        out.data.buildId = 'ac01-official-preview-20261119';
+        out.data.dataMode = 'official-preview';
+        out.data.productionData = false;
+        if (out.data.release && typeof out.data.release === 'object') {
+          out.data.release.buildId = out.data.buildId;
+          out.data.release.dataMode = out.data.dataMode;
+          out.data.release.productionData = false;
+        }
+      }
       return send(res, 200, JSON.stringify(out), 'application/json');
     }
     const url = new URL(req.url, 'http://127.0.0.1');

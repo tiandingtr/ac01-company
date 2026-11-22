@@ -260,10 +260,10 @@ try {
   if (!saved.statusClass.includes('ok')) throw new Error('reconciled upload was not a success: ' + saved.statusClass);
   if (!saved.view.includes('FL-MWN982MJ0XXQC9')) throw new Error('ledger did not list the saved id');
   if (saved.view.includes('FL-OLD') && saved.status.includes('FL-OLD')) throw new Error('matched the pre-existing row');
-  if (!saved.marker.includes(BUILD) || !saved.marker.includes('official-preview') || !saved.marker.includes('非生产数据')) {
+  if (saved.marker !== '已与接口核对身份') {
     throw new Error('identity marker changed: ' + saved.marker);
   }
-  if (!saved.gate.includes('财务定稿已关闭') || !saved.gate.includes('对客正式合同生成已关闭')) {
+  if (!saved.gate.includes('财务定稿已关闭') || !saved.gate.includes('正式合同文本生成已关闭')) {
     throw new Error('closure copy missing: ' + saved.gate);
   }
   const savedShot = await shot(page, 'ac01-preview-upload-reconciled.png');
@@ -319,14 +319,14 @@ try {
     aria: document.querySelector('#post-four').getAttribute('aria-disabled'),
     note: document.querySelector('#post-four-note').textContent
   }));
-  if (!finance.disabled || finance.aria !== 'true' || finance.note.indexOf('正式预览禁止财务定稿') < 0) {
+  if (!finance.disabled || finance.aria !== 'true' || finance.note.indexOf('本版本未开放财务定稿') < 0) {
     throw new Error('formal post was not closed: ' + JSON.stringify(finance));
   }
 
   await page.click('#nav a[data-view="contracts"]');
-  await page.waitForFunction(() => (document.querySelector('#view').innerText || '').includes('对客正式合同生成入口已关闭'), { timeout: 8000 });
+  await page.waitForFunction(() => (document.querySelector('#view').innerText || '').includes('正式合同文本生成已关闭'), { timeout: 8000 });
   const contracts = await page.evaluate(() => document.querySelector('#view').innerText);
-  if (!contracts.includes('「生成正式合同文本」不可用')) throw new Error('official contract generation was not closed');
+  if (!contracts.includes('合同台账用于登记已签署的合同')) throw new Error('official contract generation was not closed');
   if (requestIds.length < 2 || requestIds[0] === requestIds[1]) {
     throw new Error('follow-up upload reused a request id: ' + JSON.stringify(requestIds));
   }

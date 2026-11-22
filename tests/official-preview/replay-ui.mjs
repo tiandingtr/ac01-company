@@ -144,11 +144,11 @@ try {
   await openDocs(page);
   await page.waitForSelector('#replay-card', { timeout: 8000 });
   const intro = await page.$eval('#replay-card', (el) => el.innerText);
-  if (!intro.includes('仅正式预览') || !intro.includes('虚构') || !intro.includes('FL-mwnbgmp4167scl') || !intro.includes('FL-MWNBGWP7K04U72')) {
+  if (!intro.includes('按原请求号核对已归档文件') || !intro.includes('已经归档的文件') || !intro.includes('FL-mwnbgmp4167scl') || !intro.includes('FL-MWNBGWP7K04U72')) {
     throw new Error('replay card does not name the one synthetic record: ' + intro);
   }
   const gate = await page.$eval('#gate-note', (el) => el.textContent);
-  if (!gate.includes('财务定稿已关闭') || !gate.includes('对客正式合同生成已关闭')) throw new Error(gate);
+  if (!gate.includes('财务定稿已关闭') || !gate.includes('正式合同文本生成已关闭')) throw new Error(gate);
 
   const before = uploads.length;
   await page.$('#replay-form input[type="file"]').then((el) => el.uploadFile(wrongPath));
@@ -162,7 +162,7 @@ try {
   await page.click('#replay-form button[type="submit"]');
   await page.waitForFunction(() => (document.querySelector('#replay-result').textContent || '').includes('幂等重放成立'), { timeout: 8000 });
   const shown = await page.$eval('#replay-result', (el) => el.textContent);
-  if (!shown.includes('fileId FL-MWNBGWP7K04U72') || !shown.includes('idempotentReplay true')) throw new Error(shown);
+  if (!shown.includes('fileId FL-MWNBGWP7K04U72') || !shown.includes('核对结果 true')) throw new Error(shown);
   if (uploads.length !== 1) throw new Error('expected one upload, saw ' + uploads.length);
   const sent = uploads[0];
   if (sent.clientRequestId !== 'FL-mwnbgmp4167scl' || sent.category !== '其他' || sent.relatedId !== 'PL-MWN92TMG60CBO9') {
@@ -177,7 +177,7 @@ try {
   await page.click('#replay-form button[type="submit"]');
   await page.waitForFunction(() => (document.querySelector('#replay-result').textContent || '').includes('幂等重放未成立'), { timeout: 8000 });
   const failed = await page.$eval('#replay-result', (el) => el.textContent);
-  if (!failed.includes('fileId FL-SHOULD-NOT-ACCEPT') || !failed.includes('idempotentReplay false') || !failed.includes('没有再次提交')) {
+  if (!failed.includes('fileId FL-SHOULD-NOT-ACCEPT') || !failed.includes('核对结果 false') || !failed.includes('没有再次提交')) {
     throw new Error(failed);
   }
   await new Promise((resolve) => setTimeout(resolve, 400));

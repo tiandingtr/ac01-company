@@ -87,13 +87,13 @@ function diagnosis(g){
   if(!g) return '';
   var until=addDays(g['初诊日期'],g['有效天数']||14), left=daysTo(until), node=g['参考节点'], nd=node?daysTo(node):null;
   return '<section class="sec" id="s-diag"><div class="sec-title"><h2>初步诊断 · 资料规划参考</h2><span>潜在客户 · 初诊</span></div>'+
-  '<div><span class="tag">初诊阶段</span><span class="disclaimer">· 非正式签证倒计时 · 仅供规划参考 · 不构成审批结果</span></div>'+
+  '<div><span class="tag">初诊阶段</span><span class="disclaimer">· 仅供规划参考，不是签证期限倒计时 · 不构成审批结果</span></div>'+
   '<p class="muted" style="margin:8px 0 12px">初诊日期 '+esc(g['初诊日期'])+' · 初诊有效期 '+esc(g['有效天数'])+' 天（至 '+esc(until)+'，'+(left>=0?'还剩 '+left+' 天':'已过期')+'）</p>'+
   (node?'<div class="node"><b>建议启动正式筹备的参考节点：</b>'+esc(node)+'　<span class="d">'+(nd>0?'约 '+nd+' 天后':(nd===0?'今天':'已过 '+(-nd)+' 天'))+'</span><div class="note">此为规划参考节点，非签证期限。</div></div>':'')+
   '<div class="grid3">'+
-  '<section class="dcard"><div class="hd">1. 资料有无自报</div><div class="bd"><p style="margin:0 0 8px;color:#6b6f7a">以下为资料情况自报，仅供诊断参考，非正式材料审核。</p>'+
+  '<section class="dcard"><div class="hd">1. 资料有无自报</div><div class="bd"><p style="margin:0 0 8px;color:#6b6f7a">以下为资料情况自报，仅供诊断参考，不是材料审核。</p>'+
     (g['自报']||[]).map(function(x){return '<div class="row"><span>'+esc(x[0])+'</span><span class="pill '+(x[1]==='有'?'pill-y':'pill-n')+'">'+esc(x[1])+'</span></div>'}).join('')+
-    '<p class="note">※ 此为自报情况，非正式文件提交。</p></div></section>'+
+    '<p class="note">※ 此为自报情况，不是文件提交。</p></div></section>'+
   '<section class="dcard"><div class="hd">2. 缺失项目诊断</div><div class="bd"><p style="margin:0 0 8px;color:#6b6f7a">根据自报情况，诊断出以下缺失项目及说明。</p>'+
     (g['缺失']||[]).map(function(x){return '<div class="box"><b>'+esc(x['项'])+'</b>事实：'+esc(x['事实'])+'<br>建议：'+esc(x['建议'])+'</div>'}).join('')+
     '<p class="note">※ 以上为初诊判断，仅供规划参考，不作为最终结论。</p></div></section>'+

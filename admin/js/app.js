@@ -87,7 +87,17 @@
     pairs.forEach(function (pair) {
       if (out.indexOf(pair[0]) >= 0) out = out.split(pair[0]).join(pair[1]);
     });
+    out = out.split('模拟/草稿 非正式凭证').join('草稿（未定稿）');
+    out = out.split('暂记往来').join('暂记款项');
     return out.replace(/idempotentReplay/g, '核对结果');
+  }
+
+  function displayLabel(value) {
+    return publicFace(value);
+  }
+
+  function showBadge(status) {
+    return FS.badge(displayLabel(status));
   }
 
   function publicReleaseText(text) {
@@ -505,11 +515,11 @@
     const planRows = emptyPlanText
       ? `<tr><td colspan="4" class="muted">${E(emptyPlanText)}</td></tr>`
       : monthPlans.map((p) =>
-        `<tr><td>${E(p.type)}</td><td>${E(p.title)}</td><td>${E(p.planDate || '')}</td><td>${badge(p.status)}</td></tr>`
+        `<tr><td>${E(p.type)}</td><td>${E(p.title)}</td><td>${E(p.planDate || '')}</td><td>${showBadge(p.status)}</td></tr>`
       ).join('');
     const m = d.month;
-    const fin = m ? `${m.yearMonth} · 明细 ${m.lineCount} 条 · 已附 ${m.counts.已附原件} · 免原件 ${m.counts.免原件} · 暂记 ${m.counts.暂记往来} · 未处理 ${m.counts.未处理}<br>${m.ledgerGenerated ? (m.bankBalanced ? badge('银行侧已核对') : badge('未配平')) : badge('尚未生成明细账')} ${m.completionConfirmed ? badge('完成页已确认') : badge('未过完成页')} ${m.posted ? badge('已定稿') : badge('未定稿')}` : '尚未登记月账。';
-    const cts = (d.contracts || []).map((c) => `<tr><td>${E(c.contractNo)}</td><td>${E(c.counterparty)}</td><td>${E(c.stage)}</td><td>${badge(c.status)}</td></tr>`).join('')
+    const fin = m ? `${m.yearMonth} · 明细 ${m.lineCount} 条 · 已附 ${m.counts.已附原件} · 免原件 ${m.counts.免原件} · 暂记款项 ${m.counts.暂记往来} · 未处理 ${m.counts.未处理}<br>${m.ledgerGenerated ? (m.bankBalanced ? showBadge('银行侧已核对') : showBadge('未配平')) : showBadge('尚未生成明细账')} ${m.completionConfirmed ? showBadge('完成页已确认') : showBadge('未过完成页')} ${m.posted ? showBadge('已定稿') : showBadge('未定稿')}` : '尚未登记月账。';
+    const cts = (d.contracts || []).map((c) => `<tr><td>${E(c.contractNo)}</td><td>${E(c.counterparty)}</td><td>${E(c.stage)}</td><td>${showBadge(c.status)}</td></tr>`).join('')
       || '<tr><td colspan="4" class="muted">暂无合同台账。</td></tr>';
     viewEl.innerHTML = `
       ${alertBox('info', '公司管理后台。当前月 ' + E(monthLabel) + '。计划、合同与月账按同一月份读取。')}
@@ -544,8 +554,8 @@
     const warn = (d.warnings || []).map((w) => E(w.message)).join('<br>');
     const advisor = me.role === '顾问';
     const rows = (d.plans || []).map((p) => `<tr>
-      <td>${E(p.yearMonth)}</td><td>${badge(p.type)}</td><td>${E(p.title)}</td>
-      <td>${E(p.planDate || '')}</td><td>${E(p.owner || '')}</td><td>${badge(p.status)}</td>
+      <td>${E(p.yearMonth)}</td><td>${showBadge(p.type)}</td><td>${E(p.title)}</td>
+      <td>${E(p.planDate || '')}</td><td>${E(p.owner || '')}</td><td>${showBadge(p.status)}</td>
       <td>${E(p.feedback || '')}</td>
       <td class="right">
         ${advisor ? `<button class="btn small ghost" data-act="toggle" data-id="${E(p.id)}" data-status="${p.status === '已完成' ? '未完成' : '已完成'}">${p.status === '已完成' ? '标为未完成' : '标为已完成'}</button>` : ''}
@@ -625,7 +635,7 @@
     const advisor = me.role === '顾问';
     const rows = (d.proposals || []).map((p) => `<tr>
       <td>${E(p.id)}</td><td>${E(p.title)}</td><td>${E(p.yearMonth)}</td>
-      <td>${badge(p.status)}</td><td>${E(p.date)}</td>
+      <td>${showBadge(p.status)}</td><td>${E(p.date)}</td>
       <td>${p.fileId ? FS.fileLink(p.fileId, p, '查阅') : '—'}</td>
     </tr>`).join('');
     viewEl.innerHTML = `
@@ -677,13 +687,13 @@
     const files = (d.files || []).map((f) => `<tr>
       <td>${E(f.id)}</td><td>${E(f.date)}</td><td>${E(f.category)}</td><td>${E(f.name)}</td>
       <td>${E(f.relatedId || '—')}</td>
-      <td>${E(f.source)}</td><td>${badge(f.status)}</td>
+      <td>${E(f.source)}</td><td>${showBadge(f.status)}</td>
       <td>${(f.claimedBy || []).map((c) => E((c.module || '') + (c.role ? '/' + c.role : ''))).join('、') || '尚未被其他模块认领'}</td>
       <td>${FS.fileHref(f.id, f) ? FS.fileLink(f.id, f, '打开') : '—'}</td>
     </tr>`).join('');
     const pics = (d.pics || []).map((p) => `<tr>
       <td>${E(p.id)}</td><td>${E(p.date)}</td><td>${E(p.role)}</td><td>${E(publicVersion(p.version))}</td>
-      <td>${p.acknowledged ? badge('已勾选') : badge('未勾选')}</td><td>${E(p.digest)}</td>
+      <td>${p.acknowledged ? showBadge('已勾选') : showBadge('未勾选')}</td><td>${E(p.digest)}</td>
     </tr>`).join('');
     const knownIds = (d.files || []).map((f) => f && f.id).filter(Boolean);
     viewEl.innerHTML = `
@@ -837,7 +847,7 @@
     if (!alive(token)) return;
     const rows = (d.logs || []).map((l) => `<tr>
       <td>${E(l.time)}</td><td>${E(l.actor)}</td><td>${E(l.action)}</td>
-      <td>${E(String(l.target || '').replace(/^YM:/, ''))}</td><td>${badge(l.result)}</td><td>${E(l.notes)}</td>
+      <td>${E(String(l.target || '').replace(/^YM:/, ''))}</td><td>${showBadge(l.result)}</td><td>${E(l.notes)}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="muted">暂无日志。</td></tr>';
     viewEl.innerHTML = `
       ${alertBox('info', '操作日志只记录动作与结果，不写入明文口令或其他密钥。')}
@@ -890,11 +900,11 @@
         <label for="ym">月份 <input id="ym" value="${E(selectedMonth)}" inputmode="numeric" aria-describedby="ym-hint" style="width:120px;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></label>
         <button class="btn small ghost" id="load-ym" type="button">切换</button>
         <span id="ym-hint" class="muted">键 ${E(m.yearMonth)}</span>
-        ${m.pastDeadline ? badge('已过提交限期 ' + m.deadline) : badge('限期 ' + m.deadline)}
-        ${m.bankBalanced ? badge('银行侧已核对') : (m.ledgerGenerated ? badge('未配平') : badge('尚未生成明细账'))}
-        ${m.completionConfirmed ? badge('完成页已确认') : badge('未过完成页')}
-        ${m.posted ? badge('已定稿') : badge('未定稿')}
-        ${d.openingConfirmed ? badge('期初已确认') : badge('期初未确认')}
+        ${m.pastDeadline ? showBadge('已过提交限期 ' + m.deadline) : showBadge('限期 ' + m.deadline)}
+        ${m.bankBalanced ? showBadge('银行侧已核对') : (m.ledgerGenerated ? showBadge('未配平') : showBadge('尚未生成明细账'))}
+        ${m.completionConfirmed ? showBadge('完成页已确认') : showBadge('未过完成页')}
+        ${m.posted ? showBadge('已定稿') : showBadge('未定稿')}
+        ${d.openingConfirmed ? showBadge('期初已确认') : showBadge('期初未确认')}
       </div>
       ${alertBox('info', identityProfile === 'official'
         ? '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。本版本未开放财务定稿。'
@@ -980,21 +990,21 @@
     const rows = (d.lines || []).map((l) => `<tr>
       <td>${E(l.id)}</td><td>${E(l.date)}</td><td>${E(l.desc)}</td><td>${E(l.direction)}</td>
       <td>${E(l.amountHkd)}</td><td>${E(l.source)}</td><td>${E(l.subject)}</td>
-      <td>${l.voucherStatus ? badge(l.voucherStatus) : badge('未处理')}</td>
+      <td>${l.voucherStatus ? showBadge(l.voucherStatus) : showBadge('未处理')}</td>
       <td>${l.fileId ? FS.fileLink(l.fileId, d.files, l.fileId) : '—'}</td>
       <td>
         <div class="right">
           <button class="btn small ghost" data-act="upload" data-id="${E(l.id)}">上传附件</button>
           <button class="btn small ghost" data-act="claim" data-id="${E(l.id)}">认领已有文件</button>
           <button class="btn small ghost" data-act="waive" data-id="${E(l.id)}">免原件</button>
-          <button class="btn small ghost" data-act="suspense" data-id="${E(l.id)}">暂记往来</button>
+          <button class="btn small ghost" data-act="suspense" data-id="${E(l.id)}">暂记款项</button>
         </div>
       </td>
     </tr>`).join('');
     return `
       <div class="card">
         <h3>第一本明细账（工作底稿）</h3>
-        <p class="muted">每一条后面都可以上传附件；已传过的只认领。符合规定的可免原件。限期后既不能免又不能提供原件的，标暂记往来，不得删除，也不得因此与月结单对不上。</p>
+        <p class="muted">每一条后面都可以上传附件；已传过的只认领。符合规定的可免原件。限期后既不能免又不能提供原件的，标暂记款项，不得删除，也不得因此与月结单对不上。</p>
         <input type="file" id="hidden-file" style="display:none">
         <select id="claim-file" style="display:none">${filesOpts}</select>
         <table>
@@ -1026,8 +1036,8 @@
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.已附原件||[])}</tbody></table></div>
       <div class="card" style="margin-bottom:12px"><h3>免原件（${(g.免原件||[]).length}）</h3>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.免原件||[])}</tbody></table></div>
-      <div class="card" style="margin-bottom:12px"><h3>暂记往来（${(g.暂记往来||[]).length}）</h3>
-        <p class="muted">已暂记的月份可以定稿，但导出须标明暂记项目；未获真凭证调整前，这些项目不作为已齐备的审计附件。</p>
+      <div class="card" style="margin-bottom:12px"><h3>暂记款项（${(g.暂记往来||[]).length}）</h3>
+        <p class="muted">已记为暂记款项的月份可以定稿，但导出须标明暂记款项；未获真凭证调整前，这些项目不作为已齐备的审计附件。</p>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.暂记往来||[])}</tbody></table></div>
       ${confirmBtn}`;
   }
@@ -1041,16 +1051,16 @@
       const rows = (d.four || []).filter((r) => r.type === t);
       if (!rows.length) return `<div class="card" style="margin-bottom:12px"><h3>${t}</h3><p class="muted">尚未定稿，这里没有正式数。</p></div>`;
       return `<div class="card" style="margin-bottom:12px"><h3>${t}</h3>
-        <table><thead><tr><th>项目</th><th>金额（港币）</th><th>含暂记</th><th>备注</th></tr></thead>
-        <tbody>${rows.map((r) => `<tr><td>${E(r.item)}</td><td>${E(r.amountHkd)}</td><td>${r.hasSuspense ? badge('含暂记往来') : '—'}</td><td>${E(r.notes || '')}</td></tr>`).join('')}</tbody></table>
+        <table><thead><tr><th>项目</th><th>金额（港币）</th><th>含暂记款项</th><th>备注</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td>${E(r.item)}</td><td>${E(r.amountHkd)}</td><td>${r.hasSuspense ? showBadge('含暂记款项') : '—'}</td><td>${E(r.notes || '')}</td></tr>`).join('')}</tbody></table>
       </div>`;
     }).join('');
     const previewOk = d.month.ledgerGenerated && d.month.bankBalanced && d.month.completionConfirmed && !d.month.posted;
     const postNote = E(publicFace(postClosed.reasons.join(' ')));
     return `
       ${d.month.posted ? alertBox('ok', identityProfile === 'official'
-        ? '本月已有定稿记录。本版本不写入正式四套账。含暂记往来的项目已在表内标明，不作为已齐备的审计附件。'
-        : '本月已有定稿记录。本版本不写入正式四套账。含暂记往来的项目已在表内标明，不作为已齐备的审计附件。') : alertBox('info', postNote)}
+        ? '本月已有定稿记录。本版本不写入正式四套账。含暂记款项的项目已在表内标明，不作为已齐备的审计附件。'
+        : '本月已有定稿记录。本版本不写入正式四套账。含暂记款项的项目已在表内标明，不作为已齐备的审计附件。') : alertBox('info', postNote)}
       ${previewOk ? '<button class="btn teal" id="preview-four" type="button">查阅四套账（不定稿，不写入）</button>' : '<button class="btn teal" id="preview-four" type="button" disabled aria-disabled="true">查阅四套账（不定稿，不写入）</button>'}
       ${previewOk ? '<button class="btn ghost" id="export-four" type="button">下载四套账草稿 CSV</button>' : '<button class="btn ghost" id="export-four" type="button" disabled aria-disabled="true">下载四套账草稿 CSV</button>'}
       <button class="btn amber" id="post-four" type="button" disabled aria-disabled="true">定稿并写入正式四套账</button>
@@ -1191,7 +1201,7 @@
       btn.addEventListener('click', () => {
         withSubmit(btn, async () => {
           await api('markSuspense', { lineId: btn.dataset.id, __timeoutMs: 20000 });
-          showStatus('已标明暂记往来 ' + btn.dataset.id, 'ok');
+          showStatus('已标明暂记款项 ' + btn.dataset.id, 'ok');
           await render();
         });
       });
@@ -1238,7 +1248,7 @@
           return;
         }
         downloadText(out.filename || '四套账草稿.csv', out.csv);
-        showStatus('已下载四套账草稿 CSV。' + out.documentStatus + '。未定稿。', 'ok');
+        showStatus('已下载四套账草稿 CSV。' + displayLabel(out.documentStatus) + '。未定稿。', 'ok');
       });
     });
     const post = document.getElementById('post-four');
@@ -1262,11 +1272,11 @@
     const rows = list.map((c) => `<tr>
       <td><a href="#" data-open="${E(c.contractNo)}">${E(c.contractNo)}</a></td>
       <td>${E(c.counterparty)}</td><td>${E(c.type)}</td><td>${E(c.stage)}</td>
-      <td>${badge(c.status)}</td><td>${E(c.amount)} ${E(c.currency)}</td>
+      <td>${showBadge(c.status)}</td><td>${E(c.amount)} ${E(c.currency)}</td>
     </tr>`).join('');
     const inv = (d.invoices || []).map((i) => `<tr>
       <td>${E(i.invoiceNo)}</td><td>${E(i.contractNo)}</td><td>${E(i.date)}</td>
-      <td>${E(i.amount)} ${E(i.currency)}</td><td>${badge(i.status)}</td>
+      <td>${E(i.amount)} ${E(i.currency)}</td><td>${showBadge(i.status)}</td>
     </tr>`).join() && ''; // fix below
     const invoices = (d.invoices || []);
     invoiceCsvByNo = {};
@@ -1274,14 +1284,14 @@
     const invRows = invoices.map((i) => `<tr>
       <td>${E(i.invoiceNo)}</td><td>${E(i.contractNo)}</td><td>${E(i.date)}</td>
       <td>${E(i.amount)} ${E(i.currency)}</td>
-      <td>${badge(i.status || '模拟/草稿 非正式凭证')}</td>
+      <td>${showBadge(i.status || '模拟/草稿 非正式凭证')}</td>
       <td>${i.csv ? `<button class="btn small ghost" type="button" data-csv="${E(i.invoiceNo)}">下载草稿 CSV</button>` : '—'}</td>
     </tr>`).join('');
     viewEl.innerHTML = `
-      ${alertBox('info', '正式合同文本生成已关闭。合同台账不是订单。发票只能生成「模拟/草稿 非正式凭证」，不能取得官方发票号。')}
+      ${alertBox('info', '正式合同文本生成已关闭。合同台账不是订单。发票只能生成「草稿（未定稿）」，不能取得官方发票号。')}
       <div class="disabled-note" style="margin-bottom:16px">正式合同文本生成已关闭。合同台账用于登记已签署的合同。</div>
       <div class="card" style="margin-bottom:16px">
-        <h3>新建合同台账（非正式文本）</h3>
+        <h3>新建合同台账（未生成正式文本）</h3>
         <form id="ct-form">
           <div class="form-row">
             <div class="field"><label>合同号</label><input name="contractNo" placeholder="TD-C-2026-001"></div>
@@ -1302,7 +1312,7 @@
       </div>
       ${current ? renderContractDetail(current, d.files || []) : ''}
       <div class="card">
-        <h3>发票草稿（非正式）</h3>
+        <h3>发票草稿（未定稿）</h3>
         <p class="hint">金额只取合同台账，或取已经写上同一合同号的收入记录。不计算税额，不分配官方发票号，不盖章。</p>
         ${current ? `<form id="inv-form">
           <div class="form-row">
@@ -1320,7 +1330,7 @@
 
   function renderContractDetail(c, files) {
     const plan = (c.plan || []).map((p) => `<tr>
-      <td>${E(p.title)}</td><td>${E(p.dueDate)}</td><td>${p.done ? badge('已完成') : badge('未完成')}</td>
+      <td>${E(p.title)}</td><td>${E(p.dueDate)}</td><td>${p.done ? showBadge('已完成') : showBadge('未完成')}</td>
       <td>${(p.fileIds || []).join('、') || '—'}</td><td>${E(p.confirmFileId || '—')}</td>
       <td><button class="btn small ghost" data-node="${E(p.id)}" data-kind="file">认领/上传文件</button>
           ${p.kind !== '收付款' ? `<button class="btn small ghost" data-node="${E(p.id)}" data-kind="confirm">双方确认</button>` : ''}
@@ -1329,7 +1339,7 @@
     const fileOpts = files.map((f) => `${f.id}（${f.name}）`).join('， ');
     return `<div class="card" style="margin-bottom:16px">
       <h3>合同详情 ${E(c.contractNo)}</h3>
-      <p>对方 ${E(c.counterparty)} · ${E(c.type)} · ${E(c.stage)} · ${badge(c.status)} · 金额 ${E(c.amount)} ${E(c.currency)} · 首期 ${E(c.firstAmount)}</p>
+      <p>对方 ${E(c.counterparty)} · ${E(c.type)} · ${E(c.stage)} · ${showBadge(c.status)} · 金额 ${E(c.amount)} ${E(c.currency)} · 首期 ${E(c.firstAmount)}</p>
       <p class="muted">签署正本：${c.signedFileId ? E(c.signedFileId) : '未归档'} · 首期凭证：${c.firstVoucherFileId ? E(c.firstVoucherFileId) : '未归档'} · 协议文件：${c.agreementFileId ? E(c.agreementFileId) : '无'}</p>
       <div class="right" style="margin:10px 0">
         <button class="btn small" id="ct-signed" type="button">归档签署正本</button>
@@ -1385,7 +1395,7 @@
           showStatus('草稿结果不合格，未收下。', 'danger');
           return;
         }
-        showStatus((out.idempotentReplay ? '同一来源未重复新增。' : '已生成发票草稿 ') + inv.invoiceNo + '。模拟/草稿 非正式凭证。', 'ok');
+        showStatus((out.idempotentReplay ? '同一来源未重复新增。' : '已生成发票草稿 ') + inv.invoiceNo + '。' + displayLabel(inv.status) + '。', 'ok');
         invForm.dataset.req = '';
         await render();
       });
@@ -1393,11 +1403,11 @@
     viewEl.querySelectorAll('[data-csv]').forEach((btn) => btn.addEventListener('click', () => {
       const pack = invoiceCsvByNo[btn.getAttribute('data-csv')];
       if (!pack || pack.csv.indexOf('模拟/草稿 非正式凭证') < 0) {
-        showStatus('没有可下载的草稿，或文件缺少非正式标记。', 'danger');
+        showStatus('没有可下载的草稿，或文件缺少草稿标记。', 'danger');
         return;
       }
       downloadText(pack.filename, pack.csv);
-      showStatus('已下载发票草稿 CSV。模拟/草稿 非正式凭证。', 'ok');
+      showStatus('已下载发票草稿 CSV。草稿（未定稿）。', 'ok');
     }));
     if (!current) return;
     const uploadOrId = () => new Promise((resolve) => {

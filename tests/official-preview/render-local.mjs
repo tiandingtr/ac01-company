@@ -290,13 +290,13 @@ try {
     view: document.querySelector('#view').innerText
   }));
   if (matched.statusClass.includes('danger')) throw new Error('matching identity showed a mismatch: ' + JSON.stringify(matched));
-  if (!matched.marker.includes(BUILD) || !matched.marker.includes(MODE) || !matched.marker.includes('正式预览')) {
+  if (matched.marker !== '已与接口核对身份') {
     throw new Error('marker did not accept the official preview: ' + matched.marker);
   }
-  if (!matched.banner.includes('不是真实运营') || !matched.gate.includes('不是真实运营') || !matched.gate.includes('财务定稿已关闭')) {
-    throw new Error('shell lost the preview or formal-post closure: ' + matched.gate);
+  if (!matched.banner.includes('财务定稿已关闭') || !matched.banner.includes('正式合同文本生成已关闭') || !matched.gate.includes('财务定稿已关闭') || !matched.gate.includes('正式合同文本生成已关闭')) {
+    throw new Error('shell lost the formal-post closure: ' + matched.gate + ' / ' + matched.banner);
   }
-  if (!matched.view.includes('内部看板')) throw new Error('matched shell did not render the local dashboard');
+  if (!matched.view.includes('公司管理后台')) throw new Error('matched shell did not render the local dashboard');
   summary.shots.push(await shot(page, 'ac01-preview-shell-match.png'));
   const matchCalls = calls.map((c) => c.action);
   if (JSON.stringify(matchCalls) !== JSON.stringify(['me', 'getDashboard'])) {
@@ -327,10 +327,10 @@ try {
     marker: document.querySelector('#build-marker').textContent,
     view: document.querySelector('#view').innerText
   }));
-  if (!old.status.includes('已拒绝') || !old.marker.includes('ac01-sim-test-20261118') || !old.marker.includes('已拒绝')) {
+  if (!old.status.includes('已拒绝') || old.marker !== '已拒绝') {
     throw new Error('old build was not rejected: ' + JSON.stringify(old));
   }
-  if (!old.view.includes('已拒绝') || old.view.includes('内部看板')) {
+  if (!old.view.includes('已拒绝') || old.view.includes('公司管理后台')) {
     throw new Error('old build still rendered business data');
   }
   summary.shots.push(await shot(page, 'ac01-preview-shell-old-build-rejected.png'));
@@ -348,7 +348,7 @@ try {
     aria: btn.getAttribute('aria-disabled'),
     note: document.querySelector('#post-four-note').textContent
   }));
-  if (!postUi.disabled || postUi.aria !== 'true' || !postUi.note.includes('正式预览禁止财务定稿')) {
+  if (!postUi.disabled || postUi.aria !== 'true' || !postUi.note.includes('本版本未开放财务定稿')) {
     throw new Error('formal post control was enabled: ' + JSON.stringify(postUi));
   }
   await page.$eval('#post-four', (btn) => {
@@ -359,7 +359,7 @@ try {
   });
   await page.waitForFunction(() => {
     const status = document.querySelector('#status');
-    return status && status.className.includes('danger') && status.textContent.includes('正式预览禁止财务定稿');
+    return status && status.className.includes('danger') && status.textContent.includes('本版本未开放财务定稿');
   });
   const forced = await page.$eval('#post-four', (btn) => btn.disabled);
   if (!forced) throw new Error('handler left the formal-post button enabled');
@@ -371,7 +371,7 @@ try {
   await page.click('#nav a[data-view="contracts"]');
   await page.waitForFunction(() => {
     const text = document.querySelector('#view').innerText;
-    return text.includes('对客正式合同生成入口已关闭') && text.includes('生成正式合同文本') && text.includes('不可用');
+    return text.includes('正式合同文本生成已关闭') && text.includes('合同台账不是订单') && text.includes('合同台账用于登记已签署的合同');
   });
   if (calls.some((call) => call.action === 'generateOfficialContract' || call.action === 'postFourStatements')) {
     throw new Error('preview issued a closed write: ' + JSON.stringify(calls));
