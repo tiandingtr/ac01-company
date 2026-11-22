@@ -4,20 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1F3A2E">
-<title>导出测试账号散列 · 天鼎一体化公司管理后台</title>
+<title>导出授权账号散列 · 天鼎一体化公司管理后台</title>
 <link rel="icon" href="../favicon.svg">
 <link rel="stylesheet" href="css/admin.css">
 </head>
-<body>
+<body class="login-body">
+<div class="preview-banner">
+  <span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span>
+  <span>只在浏览器计算散列并下载，不发送网络、不写入数据表</span>
+</div>
 <div class="login-wrap">
-  <div class="preview-banner">
-    <span>香港天鼎國際貿易有限公司 · 测试账号散列导出</span>
-    <span>只在浏览器计算散列并下载，不发送网络、不写入数据表</span>
-  </div>
+  <header class="login-top">
+    <img src="../assets/logo-horizontal-white.svg" alt="香港天鼎國際貿易有限公司">
+  </header>
   <form class="login-card" id="setup-form" autocomplete="off">
-    <img src="../assets/logo-horizontal.svg" alt="香港天鼎國際貿易有限公司" style="height:28px">
-    <h1>导出测试账号散列</h1>
-    <p class="lead">本页只为固定测试工号生成与接口一致的密码散列文件，供授权管理人写入授权表。不会注册账号、不会赋权、不会把口令或散列发送到任何服务器。</p>
+    <h1>导出授权账号散列</h1>
+    <p class="lead">本页只为指定工号生成与接口一致的密码散列文件，供授权管理人写入授权表。不会注册账号、不会赋权、不会把口令或散列发送到任何服务器。</p>
     <div class="err" id="err"></div>
     <div class="field">
       <label for="jobId">工号</label>
@@ -36,7 +38,7 @@
       <input id="status" name="status" value="启用" readonly>
     </div>
     <div class="field">
-      <label for="password">测试口令</label>
+      <label for="password">口令</label>
       <input id="password" name="password" type="password" required autocomplete="new-password">
     </div>
     <button class="btn amber full" type="submit" id="go">生成并下载散列文件</button>
@@ -103,7 +105,7 @@
     const status = document.getElementById('status').value.trim();
     const password = passwordInput.value;
     if (jobId !== 'AC01-TEST' || role !== '顾问' || status !== '启用' || displayName !== '顾问测试账号') {
-      showErr('本页只导出固定测试账号 AC01-TEST。');
+      showErr('本页只导出指定工号。');
       passwordInput.value = '';
       return;
     }

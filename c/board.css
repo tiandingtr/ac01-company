@@ -16,7 +16,7 @@ body { font-family: var(--font-family); background-color: var(--bg-main); color:
 /* 顶部 Logo 区 */
 header.top { padding: 24px 5%; border-bottom: 1px solid var(--border); background: rgba(31, 58, 46, 0.8); backdrop-filter: blur(8px); }
 .brand-row { display: flex; align-items: center; }
-.logo { height: 36px; width: auto; }
+.logo { height: 40px; width: auto; }
 
 /* 主体 */
 main#main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
@@ -44,9 +44,7 @@ footer p:last-child { margin-top: 16px; opacity: 0.5; }
 @media (max-width: 600px) { .card.login { padding: 24px; } main#main { align-items: flex-start; padding-top: 20px; } }
 
 
-/* =========================================
-   天鼎看板内部页面样式 (修复裸奔)
-   ========================================= */
+/* 看板内容 */
 
 /* 顶部问候与导航 */
 .hello { margin-bottom: 20px; }

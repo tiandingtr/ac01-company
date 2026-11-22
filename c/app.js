@@ -2,7 +2,7 @@
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
-var NEUTRAL='密码不正确或链接已失效。如有疑问，请联系天鼎专属顾问。'; // 修改了提示语
+var NEUTRAL='密码不正确或链接已失效。如有疑问，请联系天鼎专属顾问。';
 var b64=function(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
 var fails=0,timer=null;
 
@@ -73,7 +73,7 @@ function renewal(r,upd){
   return '<section class="sec" id="s-renew"><div class="sec-title"><h2>进度看板</h2><span>已签约客户 · 资料进度</span></div>'+
   '<section class="card"><div class="grid">'+kv('客户代号',r['客户代号'])+kv('身份类别',cat)+kv('服务档位',r['服务档位'])+kv('项目阶段',r['项目阶段'])+'</div></section>'+
   '<section class="card count"><div class="grid"><div class="kv"><div class="k lt">距期限届满（'+esc(r['逗留期限'])+'）</div><div class="big" id="cd">—</div></div>'+
-  ['续签窗口开日','最迟递交参考日'].map(function(k){var v=r[k];var n=v?daysTo(v):null;return '<div class="kv"><div class="k lt">'+k+'</div><div class="v">'+esc(v||'—')+(n!==null?'<span class="lt" style="font-weight:400;font-size:.85rem">　'+(n>0?'还有 '+n+' 天':(n===0?'今天':'已过 '+(-n)+' 天'))+'</span>':'')+'</div></div>'}).join('')+
+  ['续签窗口开日','最迟递交参考日'].map(function(k){var v=r[k];var n=v?daysTo(v):null;var label=k==='续签窗口开日'?'办理窗口开日':k;return '<div class="kv"><div class="k lt">'+label+'</div><div class="v">'+esc(v||'—')+(n!==null?'<span class="lt" style="font-weight:400;font-size:.85rem">　'+(n>0?'还有 '+n+' 天':(n===0?'今天':'已过 '+(-n)+' 天'))+'</span>':'')+'</div></div>'}).join('')+
   '</div></section>'+
   '<section class="card"><div class="grid"><div class="kv"><div class="k muted">个人资料进度</div><div class="v prog">'+esc(prog['个人']||'—')+'</div></div><div class="kv"><div class="k muted">公司资料进度</div><div class="v prog">'+esc(prog['公司']||'—')+'</div></div></div></section>'+
   '<section class="card"><h2>个人资料</h2>'+table(r['个人资料']||[],r['附件示例'])+'</section>'+
@@ -123,7 +123,6 @@ function selfcheck(s){
 
 function policyShell(){return '<section class="sec" id="s-policy"><div class="sec-title"><h2>最新政策</h2><span id="pol-meta">正在读取…</span></div><div id="pol"></div></section>'}
 function loadPolicy(){
-  // 【修改点】：将绝对路径改为相对路径，适配天鼎独立目录
   fetch('../data/policy.json',{cache:'no-store',credentials:'omit'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(p){
     $('pol-meta').innerHTML='<span class="badge">'+esc(p.status||'')+'</span>　'+esc(p.date||'')+(p.window?' · 覆盖 '+esc(p.window):'');
     var h=p.headline?'<section class="card"><b>本期结论：</b>'+esc(p.headline)+'</section>':'';
@@ -137,15 +136,15 @@ function loadPolicy(){
 function render(d){
   var app=$('app');
   var nav=[['s-renew','进度看板',d['续签']],['s-diag','初步诊断',d['初诊']],['s-self','自测结果',d['自测']],['s-policy','最新政策',true]].filter(function(x){return x[2]});
+  var recordedMarker=d['测试'];
   app.innerHTML=
-    (d['测试']?'<div class="testbar">测试版 · 示例客户：以下全部为虚构资料，仅用于验收页面效果。</div>':'')+
+    (recordedMarker?'':'')+
     '<div class="hello"><h1>您好'+(d['称呼']?'，'+esc(d['称呼']):'')+'</h1><span class="meta">数据更新：'+esc(d['更新时间'])+'（香港时间）</span></div>'+
     '<nav class="nav" id="nav">'+nav.map(function(x,i){return '<a href="#'+x[0]+'"'+(i===0?' class="on"':'')+'>'+x[1]+'</a>'}).join('')+'</nav>'+
     renewal(d['续签'],d['更新时间'])+diagnosis(d['初诊'])+selfcheck(d['自测'])+policyShell()+
     '<div class="actions"><span class="muted">离开前请点「锁定」，或直接关闭页面。</span><button class="ghost" type="button" id="lock">锁定看板</button></div>';
   $('gate').classList.add('hidden'); app.classList.remove('hidden');
   
-  // 【修改点】：修改浏览器标签页的标题
   document.title='客户专属看板 · 香港天鼎国际贸易';
   
   if(d['续签']){var tick=function(){var e=$('cd');if(e)e.textContent=cd(d['续签']['逗留期限'])};tick();timer=setInterval(tick,1000)}
