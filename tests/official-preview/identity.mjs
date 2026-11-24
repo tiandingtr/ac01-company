@@ -303,12 +303,23 @@ const renderAt = boot.indexOf('await render()');
 assert.ok(rejectAt > 0 && renderAt > rejectAt, 'a rejected identity must return before the first business render');
 
 const revision = JSON.parse(read('gas/release/REVISION.json'));
-assert.equal(revision.buildId, OLD_BUILD);
-assert.equal(revision.dataMode, 'simulated-test');
-assert.ok(read('gas/release/Code.js').includes("var BUILD_ID = 'ac01-sim-test-20261118'"));
 assert.ok(read('dist/ac01-pages/admin/js/config.js').includes(OLD_EXEC));
 assert.equal(JSON.parse(read('dist/ac01-gas/CONTRACT.json')).buildId, OLD_BUILD);
 assert.equal(JSON.parse(read('tests/synthetic/results/summary.json')).buildId, OLD_BUILD);
+const gasSource = read('gas/release/Code.js');
+const backendBuild = gasSource.match(/var BUILD_ID = '([^']*)'/)[1];
+const backendMode = gasSource.match(/var DATA_MODE = '([^']*)'/)[1];
+const meBody = gasSource.slice(gasSource.indexOf("action === 'me'"), gasSource.indexOf("action === 'getEffectiveTargets'"));
+const backendProd = meBody.match(/productionData:\s*(true|false)/)[1] === 'true';
+const frontSandbox = { window: {} };
+vm.createContext(frontSandbox);
+vm.runInContext(read('admin/js/build.js'), frontSandbox);
+const frontIdentities = frontSandbox.window.AC01_IDENTITIES || [frontSandbox.window.AC01_BUILD];
+const backendMatchesFrontend = frontIdentities.some((group) => group.buildId === backendBuild && group.dataMode === backendMode && group.productionData === backendProd);
+assert.equal(backendMatchesFrontend, true, 'backend ' + backendBuild + ' / ' + backendMode + ' / ' + backendProd + ' must match a frontend identity');
+assert.equal(revision.buildId, backendBuild);
+assert.equal(revision.dataMode, backendMode);
+assert.equal(revision.productionData, backendProd);
 
 console.log(JSON.stringify({
   ok: true,
@@ -318,5 +329,6 @@ console.log(JSON.stringify({
   exec: NEW_EXEC,
   matched: matched.reasons,
   formalPostClosed: closed.code,
-  historicalReleaseUntouched: revision.buildId
+  backendBuildId: revision.buildId,
+  backendMatchesFrontend: true
 }, null, 2));
