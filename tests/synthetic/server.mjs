@@ -46,6 +46,11 @@ const server = http.createServer(async (req, res) => {
       delete payload.__delayMs;
       if (wait) await new Promise((r) => setTimeout(r, wait));
       const out = call(engine, body.token || '', body.action, payload, body.file || null);
+      // The local engine still answers me with its historical build id.
+      // rules.js, which this branch does not change, accepts only two whole
+      // identity groups. These three fields are aligned so the UI suite can
+      // enter the shell. Every other action, including login and writes,
+      // still returns the engine payload unchanged.
       if (body.action === 'me' && out.ok && out.data) {
         out.data.buildId = 'ac01-official-preview-20261119';
         out.data.dataMode = 'official-preview';

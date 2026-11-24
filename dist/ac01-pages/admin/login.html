@@ -6,9 +6,13 @@
 <meta name="theme-color" content="#1F3A2E">
 <title>登录 · 天鼎一体化公司管理后台</title>
 <link rel="icon" href="../favicon.svg">
-<link rel="stylesheet" href="css/admin.css">
+<link rel="stylesheet" href="css/admin.css?v=ac01-official-20261120-compat6">
 </head>
 <body class="login-body">
+<div class="preview-banner">
+  <span>香港天鼎國際貿易有限公司 · 一体化公司管理后台 · <strong>登录</strong></span>
+  <span>请使用分配的账号登录。授权失败即拒绝，不会放宽鉴权。</span>
+</div>
 <div class="login-wrap">
   <div class="login-geometry" aria-hidden="true"></div>
   <header class="login-top">
@@ -18,7 +22,7 @@
   <form class="login-card" id="login-form" autocomplete="username">
     <p class="login-kicker">HK TIANDING INTERNATIONAL TRADE LIMITED</p>
     <h1>一体化公司管理后台</h1>
-    <p class="lead">授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。</p>
+    <p class="lead">管理后台登录。授权人与顾问共用同一入口。鉴权失败即拒绝；授权表缺失或为空时不会放行。</p>
     <div class="err" id="err" role="alert" aria-live="assertive"></div>
     <div class="field">
       <label for="jobId">工号</label>
@@ -29,7 +33,7 @@
       <input id="password" name="password" type="password" required>
     </div>
     <button class="btn amber full" type="submit" id="go">登录</button>
-    <p class="hint">本入口只连接本项目独立接口。请勿在页面或聊天中保存口令。</p>
+    <p class="hint">请使用分配的账号登录。请勿在页面或聊天中保存口令。</p>
   </form>
   <footer class="login-foot">
     <p>香港天鼎國際貿易有限公司</p>
@@ -38,8 +42,8 @@
     <p>©2026 HK TIANDING INTERNATIONAL TRADE LIMITED. 保留所有權利。</p>
   </footer>
 </div>
-<script src="js/config.js"></script>
-<script src="js/api.js"></script>
+<script src="js/config.js?v=ac01-official-20261120-compat6"></script>
+<script src="js/api.js?v=ac01-official-20261120-compat6"></script>
 <script>
 (function () {
   const params = new URLSearchParams(location.search);

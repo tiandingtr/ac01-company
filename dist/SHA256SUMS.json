@@ -103,38 +103,38 @@
     },
     {
       "path": "dist/ac01-pages/admin/account-setup.html",
-      "sha256": "f24e088b2d038d5c1c2f4e95303852d5a33b3fbcab4f653908053d774697ffad",
-      "bytes": 5056
+      "sha256": "20d7970c1d2ac57a848d8da2541f08523a3df0ece27985d5d00082a48c59a57b",
+      "bytes": 5069
     },
     {
       "path": "dist/ac01-pages/admin/index.html",
-      "sha256": "473c73d9c8cf4af9b1ae4c054d6d1909df2bb86401b3f8be6872b57056d5d843",
-      "bytes": 2434
+      "sha256": "c40a4d7e84f55448102db3a090c801cca6f8ea0d4227ab85fbe4916a7b7f4a27",
+      "bytes": 2629
     },
     {
       "path": "dist/ac01-pages/admin/login.html",
-      "sha256": "76b52aa897db8920abb46e055784eb9b4e0b0747e9ad87015dcebacbc14a668e",
-      "bytes": 3151
+      "sha256": "fba2179f66c392de2964024e7ab4572e29a7a263ebafa5973f21006aa37ae719",
+      "bytes": 3502
     },
     {
       "path": "dist/ac01-pages/admin/css/admin.css",
-      "sha256": "9aababb8f7f63c66e1163eca5ead7f753621e3ad5abc7f871c97cf65b2466022",
-      "bytes": 10302
+      "sha256": "c353ea9d3001151a8d432e9f95b31dbc53b4e3aa80190126f3ac9a719f0f9a50",
+      "bytes": 10777
     },
     {
       "path": "dist/ac01-pages/admin/js/api.js",
-      "sha256": "353a8cb96d9bb0614dd2661ce1baa9205eb98f12a0a371f6f63a6033ac3588a4",
-      "bytes": 7205
+      "sha256": "498c05491b197387d6bfc49d5c200466acadf73b8e5a1444eacb21b0389447b0",
+      "bytes": 11914
     },
     {
       "path": "dist/ac01-pages/admin/js/app.js",
-      "sha256": "bbed62c79f0783cfeeab5abb1ce0322b290e8b50d8d4d253ecb03e0bd1d2234a",
-      "bytes": 59330
+      "sha256": "b74c0adab18863cdc2558dea39266d38202cf339b880c5a2528df79abd14d4ff",
+      "bytes": 79109
     },
     {
       "path": "dist/ac01-pages/admin/js/build.js",
-      "sha256": "7ba66df15ce4a2c3e66b79cd4d970517b849d2bb49a99c147c105cb048c4db20",
-      "bytes": 207
+      "sha256": "c4257051b3983d29699b4cd2620042dd9c08bc56962c69741256b3fc1003db50",
+      "bytes": 423
     },
     {
       "path": "dist/ac01-pages/admin/js/config.js",
@@ -143,8 +143,8 @@
     },
     {
       "path": "dist/ac01-pages/admin/js/rules.js",
-      "sha256": "65c671bc0a393ea0ddde32883107fddd1e64deee87b0b5ec54251037b71d80d3",
-      "bytes": 3589
+      "sha256": "ba80494275ea17c03762a928d28b545da3943a209929e9bb1ec741671d75b2f2",
+      "bytes": 16893
     },
     {
       "path": "dist/ac01-pages/assets/global.js",
@@ -278,13 +278,13 @@
     },
     {
       "path": "dist/ac01-pages/c/app.js",
-      "sha256": "4fd5f2590e2f57b1f0130e2d5b24641943d6ad075a6fde81c89f8be58df1cd91",
-      "bytes": 14557
+      "sha256": "0e246a5ef99107fc36eccbf22bee2f28b54561822b9087146fd4d5efac7070a3",
+      "bytes": 14373
     },
     {
       "path": "dist/ac01-pages/c/board.css",
-      "sha256": "64dbec3d744b18d56df211903949ef20dc73faa860ad53ded4303b96bcf3e448",
-      "bytes": 7135
+      "sha256": "0d343222e651e3a426a748ee448048651c1bfac01ad20dc44e9d3ec3c28adb0a",
+      "bytes": 7010
     },
     {
       "path": "dist/ac01-pages/c/data.enc.json",
@@ -293,8 +293,8 @@
     },
     {
       "path": "dist/ac01-pages/c/index.html",
-      "sha256": "26db37dfef1f4467b600113b07754c36592c98bf8d4d02afa0d32b9a1b42412b",
-      "bytes": 2152
+      "sha256": "a06dc2350b79e1e52773f2ce86ed49f1c01a14344e71c65e18f608301296a98d",
+      "bytes": 2084
     },
     {
       "path": "dist/ac01-pages/en/about.html",

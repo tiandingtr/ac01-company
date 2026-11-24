@@ -355,17 +355,33 @@
   function applyReleaseMarker(data, decision) {
     const marker = document.getElementById('build-marker');
     if (!marker) return;
+    const buildId = data && data.buildId ? String(data.buildId) : '未返回';
+    const dataMode = data && data.dataMode ? String(data.dataMode) : '未返回';
     if (decision && decision.ok && decision.profile === 'official') {
-      marker.textContent = '已与接口核对身份';
+      marker.textContent = buildId + ' · ' + dataMode + ' · 正式数据';
       applyOfficialChrome();
       return;
     }
     if (!decision || !decision.ok) {
-      marker.textContent = '已拒绝';
+      const flag = data && Object.prototype.hasOwnProperty.call(data, 'productionData') ? String(data.productionData) : '未返回';
+      marker.textContent = buildId + ' · ' + dataMode + ' · ' + flag + ' · 已拒绝';
       return;
     }
     if (decision.profile === 'preview') applyPreviewChrome();
-    marker.textContent = '已与接口核对身份';
+    const nonProd = data && data.productionData === false ? '非生产数据' : 'productionData 不是 false';
+    marker.textContent = buildId + ' · ' + dataMode + ' · ' + nonProd;
+  }
+
+  function releaseTextForViewer(data, described) {
+    const text = publicReleaseText(described && described.text);
+    const role = data && data.user && data.user.role;
+    if (role === '顾问') return text;
+    let out = text;
+    const sheet = described && described.spreadsheetId ? String(described.spreadsheetId) : '';
+    const drive = described && described.driveRootId ? String(described.driveRootId) : '';
+    if (sheet) out = out.split(sheet).join('已隐藏');
+    if (drive) out = out.split(drive).join('已隐藏');
+    return out;
   }
 
   async function boot() {
@@ -379,7 +395,7 @@
       if (targets && window.FSRules && FSRules.describeRelease) {
         const described = FSRules.describeRelease(data);
         targets.dataset.state = described.state;
-        targets.textContent = publicReleaseText(described.text);
+        targets.textContent = releaseTextForViewer(data, described);
       }
       if (!decision.ok) {
         releaseState = 'rejected';
@@ -1289,7 +1305,7 @@
     </tr>`).join('');
     viewEl.innerHTML = `
       ${alertBox('info', '正式合同文本生成已关闭。合同台账不是订单。发票只能生成「草稿（未定稿）」，不能取得官方发票号。')}
-      <div class="disabled-note" style="margin-bottom:16px">正式合同文本生成已关闭。合同台账用于登记已签署的合同。</div>
+      <div class="disabled-note" style="margin-bottom:16px">「生成正式合同文本」不可用。合同台账用于登记已签署的合同。</div>
       <div class="card" style="margin-bottom:16px">
         <h3>新建合同台账（未生成正式文本）</h3>
         <form id="ct-form">

@@ -290,7 +290,7 @@ try {
     view: document.querySelector('#view').innerText
   }));
   if (matched.statusClass.includes('danger')) throw new Error('matching identity showed a mismatch: ' + JSON.stringify(matched));
-  if (matched.marker !== '已与接口核对身份') {
+  if (!matched.marker.includes(BUILD) || !matched.marker.includes(MODE) || !matched.marker.includes('非生产')) {
     throw new Error('marker did not accept the official preview: ' + matched.marker);
   }
   if (!matched.banner.includes('财务定稿已关闭') || !matched.banner.includes('正式合同文本生成已关闭') || !matched.gate.includes('财务定稿已关闭') || !matched.gate.includes('正式合同文本生成已关闭')) {
@@ -327,7 +327,7 @@ try {
     marker: document.querySelector('#build-marker').textContent,
     view: document.querySelector('#view').innerText
   }));
-  if (!old.status.includes('已拒绝') || old.marker !== '已拒绝') {
+  if (!old.status.includes('已拒绝') || !old.marker.includes('ac01-sim-test-20261118') || !old.marker.includes('已拒绝')) {
     throw new Error('old build was not rejected: ' + JSON.stringify(old));
   }
   if (!old.view.includes('已拒绝') || old.view.includes('公司管理后台')) {
@@ -371,7 +371,7 @@ try {
   await page.click('#nav a[data-view="contracts"]');
   await page.waitForFunction(() => {
     const text = document.querySelector('#view').innerText;
-    return text.includes('正式合同文本生成已关闭') && text.includes('合同台账不是订单') && text.includes('合同台账用于登记已签署的合同');
+    return text.includes('正式合同文本生成已关闭') && text.includes('生成正式合同文本') && text.includes('不可用');
   });
   if (calls.some((call) => call.action === 'generateOfficialContract' || call.action === 'postFourStatements')) {
     throw new Error('preview issued a closed write: ' + JSON.stringify(calls));

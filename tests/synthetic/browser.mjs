@@ -110,7 +110,7 @@ await page.waitForFunction(() => document.querySelector('#who') && document.quer
 const gate = await page.$eval('#gate-note', (el) => el.textContent);
 rec('R1', 'SYN-R1-GATE-VISIBLE', {}, '期初待确认', gate, gate.indexOf('期初待确认') >= 0 && gate.indexOf('禁止正式记账') >= 0);
 const buildText = await page.$eval('#build-marker', (el) => el.textContent);
-rec('R1', 'SYN-R1-BUILD-MARKER', {}, '已与接口核对身份', buildText, buildText === '已与接口核对身份');
+rec('R1', 'SYN-R1-BUILD-MARKER', {}, 'version and 非生产', buildText, buildText.indexOf('ac01-official-preview-20261119') >= 0 && buildText.indexOf('official-preview') >= 0 && buildText.indexOf('非生产') >= 0);
 const observed = await page.evaluate(async () => {
   const me = await FS.api('me');
   const shown = document.querySelector('#target-marker').textContent;

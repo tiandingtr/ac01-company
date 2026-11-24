@@ -260,7 +260,7 @@ try {
   if (!saved.statusClass.includes('ok')) throw new Error('reconciled upload was not a success: ' + saved.statusClass);
   if (!saved.view.includes('FL-MWN982MJ0XXQC9')) throw new Error('ledger did not list the saved id');
   if (saved.view.includes('FL-OLD') && saved.status.includes('FL-OLD')) throw new Error('matched the pre-existing row');
-  if (saved.marker !== '已与接口核对身份') {
+  if (!saved.marker.includes(BUILD) || !saved.marker.includes('official-preview') || !saved.marker.includes('非生产')) {
     throw new Error('identity marker changed: ' + saved.marker);
   }
   if (!saved.gate.includes('财务定稿已关闭') || !saved.gate.includes('正式合同文本生成已关闭')) {
@@ -324,9 +324,9 @@ try {
   }
 
   await page.click('#nav a[data-view="contracts"]');
-  await page.waitForFunction(() => (document.querySelector('#view').innerText || '').includes('正式合同文本生成已关闭'), { timeout: 8000 });
+  await page.waitForFunction(() => (document.querySelector('#view').innerText || '').includes('生成正式合同文本'), { timeout: 8000 });
   const contracts = await page.evaluate(() => document.querySelector('#view').innerText);
-  if (!contracts.includes('合同台账用于登记已签署的合同')) throw new Error('official contract generation was not closed');
+  if (!contracts.includes('「生成正式合同文本」不可用')) throw new Error('official contract generation was not closed');
   if (requestIds.length < 2 || requestIds[0] === requestIds[1]) {
     throw new Error('follow-up upload reused a request id: ' + JSON.stringify(requestIds));
   }

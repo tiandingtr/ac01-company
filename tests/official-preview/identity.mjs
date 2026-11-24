@@ -171,7 +171,7 @@ assert.equal(LOGIN_CACHE, CACHE);
 assert.ok(read('admin/js/build.js').includes(OFFICIAL_BUILD));
 assert.ok(read('admin/js/build.js').includes("productionData: true"));
 assert.ok(read('admin/js/app.js').includes("decision.profile === 'official'"));
-assert.ok(read('admin/js/app.js').includes('已与接口核对身份'));
+assert.ok(read('admin/js/app.js').includes('非生产数据'));
 assert.equal(read('admin/index.html').includes(BUILD), false);
 assert.ok(read('admin/index.html').includes('登录后与接口核对。'));
 assert.equal(read('admin/index.html').includes('?v=' + BUILD + '"'), false);
@@ -284,7 +284,7 @@ renderedRejection('rejected official mismatch', officialPayload({ buildId: 'ac01
 const rejectedMarker = app.slice(app.indexOf('if (!decision || !decision.ok)'), app.indexOf("decision.profile === 'preview'"));
 assert.ok(rejectedMarker.includes('已拒绝'));
 assert.equal(rejectedMarker.includes('非生产数据'), false);
-assert.ok(app.includes("marker.textContent = '已与接口核对身份'"));
+assert.ok(app.includes("data && data.productionData === false ? '非生产数据' : 'productionData 不是 false'"));
 assert.ok(app.includes("identityProfile === 'official' ? '' : ''"));
 assert.ok(app.includes("identityProfile === 'official' && (!accountName || !accountId)"));
 assert.ok(app.includes("identityProfile === 'official' ? '对方名称' : '对方名称'"));

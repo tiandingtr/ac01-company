@@ -1,10 +1,170 @@
 /* AC01 Tianding operations admin — single gated shell. Data only from /api. */
 (function () {
-  const { api, escapeHtml: E, badge } = FS;
+  const { api: requestApi, escapeHtml: E, badge } = FS;
   const viewEl = document.getElementById('view');
   const titleEl = document.getElementById('title');
   const whoEl = document.getElementById('who');
   let me = null;
+  let signedSession = null;
+  let releaseState = 'pending';
+  let releaseReasons = [];
+  let identityProfile = '';
+  const RELEASE_REJECTED = '已拒绝：接口身份与本页不一致。';
+  const IDENTITY_PENDING = '正在核对接口身份…';
+  const READ_SLOW_MS = 8000;
+  const READ_LIMIT_MS = 20000;
+  const IDENTITY_REASON_CODES = {
+    'page-build': true,
+    'page-dataMode': true,
+    'page-productionData': true,
+    missing: true,
+    buildId: true,
+    dataMode: true,
+    productionData: true,
+    'production-mode': true,
+    'production-data': true,
+    'release.buildId': true,
+    'release.dataMode': true,
+    'release.productionData': true,
+    'release-production-mode': true,
+    'release-production-data': true,
+    'release-missing': true,
+    'release.buildId-missing': true,
+    'release.dataMode-missing': true,
+    'release.productionData-missing': true,
+    'buildId-missing': true,
+    'dataMode-missing': true,
+    'productionData-missing': true,
+    'missing-check': true
+  };
+  const PAGE_ERROR_CODES = {
+    TIMEOUT: true,
+    NETWORK: true,
+    BAD_RESPONSE: true,
+    UPLOAD_NOT_ON_LEDGER: true,
+    UPLOAD_AMBIGUOUS: true,
+    UPLOAD_RECONCILE_FAILED: true,
+    AUTH_STORE_MISSING: true
+  };
+  const REASON_LABELS = {
+    'page-build': '页面版本不一致',
+    'page-dataMode': '页面环境不一致',
+    'page-productionData': '页面数据标记不一致',
+    missing: '接口未返回身份',
+    buildId: '版本不一致',
+    dataMode: '环境不一致',
+    productionData: '数据标记不一致',
+    'production-mode': '环境标记不一致',
+    'production-data': '数据标记不一致',
+    'release.buildId': '接口版本不一致',
+    'release.dataMode': '接口环境不一致',
+    'release.productionData': '接口数据标记不一致',
+    'release-production-mode': '接口环境标记不一致',
+    'release-production-data': '接口数据标记不一致',
+    'release-missing': '接口未返回发布信息',
+    'release.buildId-missing': '接口未返回版本',
+    'release.dataMode-missing': '接口未返回环境',
+    'release.productionData-missing': '接口未返回数据标记',
+    'buildId-missing': '接口未返回版本',
+    'dataMode-missing': '接口未返回环境',
+    'productionData-missing': '接口未返回数据标记',
+    'missing-check': '无法核对身份',
+    other: '身份核对未通过'
+  };
+
+  /* Display-only. Does not change the strings rules.js compares or returns. */
+  function publicFace(text) {
+    const pairs = [
+      ['本月尚未登记正式计划（测试数据不计入）', '本月尚未登记计划。'],
+      ['正式预览禁止财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。', '本版本未开放财务定稿。期初、配平、完成页和未处理项即使全部满足，也不会写入正式四套账。'],
+      ['当前身份不是正式预览或不是非生产数据，已拒绝。', '当前身份与本页要求不一致，已拒绝。'],
+      ['仅正式预览的一条虚构资料。', '仅核对该条已归档文件。'],
+      ['文件名不是这条虚构资料。', '文件名与已归档文件不符。'],
+      ['文件内容不是这条虚构资料。', '文件内容与已归档文件不符。'],
+      ['正式环境不开放虚构资料重放', '正式环境不开放此项文件核对']
+    ];
+    let out = String(text == null ? '' : text);
+    pairs.forEach(function (pair) {
+      if (out.indexOf(pair[0]) >= 0) out = out.split(pair[0]).join(pair[1]);
+    });
+    out = out.split('模拟/草稿 非正式凭证').join('草稿（未定稿）');
+    out = out.split('暂记往来').join('暂记款项');
+    return out.replace(/idempotentReplay/g, '核对结果');
+  }
+
+  function displayLabel(value) {
+    return publicFace(value);
+  }
+
+  function showBadge(status) {
+    return FS.badge(displayLabel(status));
+  }
+
+  function publicReleaseText(text) {
+    return publicFace(text)
+      .replace(/ac01-official-preview-\d+/g, '当前版本')
+      .replace(/official-preview/g, '正式')
+      .replace(/来源：本次 me\.release。/g, '来源：本次登录。');
+  }
+
+  function publicVersion(value) {
+    const s = String(value || '');
+    if (/preview/i.test(s)) return '隐私声明';
+    return s;
+  }
+
+  /* api.js stops its timer when fetch() resolves, before res.json().
+   * A slow body would otherwise leave the view on “正在读取…”. */
+  function api(action, payload, file) {
+    const requested = payload && Number(payload.__timeoutMs);
+    const timeoutMs = requested > 0 ? requested : READ_LIMIT_MS;
+    let timer = null;
+    const timed = new Promise(function (_, reject) {
+      timer = setTimeout(function () {
+        const read = FS.isReadAction ? FS.isReadAction(action) : false;
+        const err = new Error(read
+          ? '读取超时，列表没有载入。请稍后重新打开本页。这次失败只表示没有读到数据。'
+          : '请求超时，接口没有返回写入结果。请先核对列表里是否已有这次记录，不要立刻再次提交。');
+        err.code = 'TIMEOUT';
+        err.intent = read ? 'read' : 'write';
+        err.action = action || '';
+        reject(err);
+      }, timeoutMs);
+    });
+    const request = Promise.resolve(requestApi(action, payload, file)).finally(function () {
+      clearTimeout(timer);
+    });
+    return Promise.race([request, timed]);
+  }
+
+  function visibleIdentityReasons(reasons) {
+    const out = [];
+    (Array.isArray(reasons) ? reasons : []).forEach(function (reason) {
+      const code = IDENTITY_REASON_CODES[reason] ? String(reason) : 'other';
+      if (out.indexOf(code) < 0) out.push(code);
+    });
+    if (!out.length) out.push('other');
+    return out;
+  }
+
+  function rejectionText() {
+    const labels = visibleIdentityReasons(releaseReasons).map(function (code) {
+      return REASON_LABELS[code] || REASON_LABELS.other;
+    });
+    return RELEASE_REJECTED + ' 原因：' + labels.join('、');
+  }
+
+  function viewErrorText(err) {
+    const message = err && err.message ? String(err.message) : '读取没有完成。';
+    const code = err && err.code ? String(err.code) : '';
+    const closed = Rules && Rules.previewReplayClosedText && Rules.previewReplayClosedText(code);
+    if (closed) return publicFace(closed);
+    if (!err || PAGE_ERROR_CODES[code] || err.intent === 'read' || err.intent === 'write' || err.intent === 'login') {
+      return message;
+    }
+    if (err.status || code) return '接口返回错误：' + message;
+    return message;
+  }
   let financeTab = 'statements';
   let selectedMonth = '';
   let asOf = '';
@@ -21,7 +181,13 @@
     const el = document.getElementById('status');
     if (!el) return;
     el.className = 'status' + (message ? ' show ' + (type || 'info') : '');
-    el.textContent = message || '';
+    el.textContent = publicFace(message || '');
+  }
+
+  function clearStaleDanger() {
+    const el = document.getElementById('status');
+    if (!el || !el.classList.contains('danger')) return;
+    showStatus('', '');
   }
 
   function downloadText(filename, text) {
@@ -40,6 +206,59 @@
     return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  async function sha256Hex(file) {
+    if (!crypto || !crypto.subtle || !file) throw new Error('无法在本页核对文件内容。已停止，没有提交。');
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function shanghaiYmd(now) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(now || new Date());
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function isUnconfirmedWrite(err) {
+    return !!(err && err.intent === 'write' && (err.code === 'TIMEOUT' || err.code === 'NETWORK' || err.code === 'BAD_RESPONSE'));
+  }
+
+  function uploadUnconfirmedError(kind) {
+    const text = kind === 'missing'
+      ? '上传请求没有在时限内返回。已回读资料台账，没有找到本次文件，因此本次可能尚未保存。请稍后重新打开资料页核对，不要立刻再次上传。'
+      : kind === 'ambiguous'
+        ? '上传请求没有在时限内返回。资料台账里有不止一条与本次文件相符的记录，无法确定编号。请打开列表核对，不要再次上传。'
+        : '上传请求没有在时限内返回，回读资料台账也没有成功，所以还不能判断这次文件是否已经入账。请稍后重新打开资料页核对，不要立刻再次上传。';
+    const err = new Error(text);
+    err.code = kind === 'missing' ? 'UPLOAD_NOT_ON_LEDGER' : kind === 'ambiguous' ? 'UPLOAD_AMBIGUOUS' : 'UPLOAD_RECONCILE_FAILED';
+    return err;
+  }
+
+  async function confirmUploadedFile(hint, knownIds) {
+    let sawLedger = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await delay(2000);
+      try {
+        const data = await api('getDocuments', { __timeoutMs: 40000 });
+        sawLedger = true;
+        const judged = FS.reconcileUploadedFile((data && data.files) || [], hint, knownIds);
+        if (judged && judged.status && judged.status !== 'missing') return judged;
+      } catch (err) {
+        if (err && err.status === 401) throw err;
+        const transport = err && (err.code === 'TIMEOUT' || err.code === 'NETWORK' || err.code === 'BAD_RESPONSE');
+        if (!transport) throw err;
+      }
+    }
+    if (sawLedger) return { status: 'missing', file: null };
+    return { status: 'unverified', file: null };
+  }
+
   function ym(value) {
     return Rules.canonYearMonth(value);
   }
@@ -55,14 +274,21 @@
     try {
       return await fn();
     } catch (err) {
-      showStatus(err && err.message ? err.message : '提交失败。', 'danger');
+      showStatus(viewErrorText(err), 'danger');
       return null;
     } finally {
       if (btn.isConnected) {
-        btn.dataset.busy = '0';
-        btn.disabled = false;
-        btn.removeAttribute('aria-busy');
-        btn.textContent = prev;
+        if (btn.dataset.hold === '1') {
+          btn.disabled = true;
+          btn.setAttribute('aria-disabled', 'true');
+          btn.removeAttribute('aria-busy');
+          btn.textContent = '请先核对列表';
+        } else {
+          btn.dataset.busy = '0';
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          btn.textContent = prev;
+        }
       }
     }
   }
@@ -97,25 +323,106 @@
     return `<div class="alert ${type}">${html}</div>`;
   }
 
+  function applyPreviewChrome() {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = '<span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span><span>财务定稿已关闭 · 正式合同文本生成已关闭</span>';
+    }
+    const foot = document.querySelector('.side .foot');
+    if (foot) foot.textContent = '香港天鼎國際貿易有限公司 · 一体化公司管理后台。财务定稿已关闭。';
+  }
+
+  function applyRejectedChrome() {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = '<span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span><span>' + RELEASE_REJECTED + '</span>';
+    }
+    const foot = document.querySelector('.side .foot');
+    if (foot) foot.textContent = RELEASE_REJECTED;
+    const gate = document.getElementById('gate-note');
+    if (gate) gate.textContent = RELEASE_REJECTED;
+  }
+
+  function applyOfficialChrome() {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = '<span>香港天鼎國際貿易有限公司 · 一体化公司管理后台</span><span>财务定稿已关闭 · 正式合同文本生成已关闭</span>';
+    }
+    const foot = document.querySelector('.side .foot');
+    if (foot) foot.textContent = '香港天鼎國際貿易有限公司 · 一体化公司管理后台。财务定稿已关闭。';
+  }
+
+  function applyReleaseMarker(data, decision) {
+    const marker = document.getElementById('build-marker');
+    if (!marker) return;
+    const buildId = data && data.buildId ? String(data.buildId) : '未返回';
+    const dataMode = data && data.dataMode ? String(data.dataMode) : '未返回';
+    if (decision && decision.ok && decision.profile === 'official') {
+      marker.textContent = buildId + ' · ' + dataMode + ' · 正式数据';
+      applyOfficialChrome();
+      return;
+    }
+    if (!decision || !decision.ok) {
+      const flag = data && Object.prototype.hasOwnProperty.call(data, 'productionData') ? String(data.productionData) : '未返回';
+      marker.textContent = buildId + ' · ' + dataMode + ' · ' + flag + ' · 已拒绝';
+      return;
+    }
+    if (decision.profile === 'preview') applyPreviewChrome();
+    const nonProd = data && data.productionData === false ? '非生产数据' : 'productionData 不是 false';
+    marker.textContent = buildId + ' · ' + dataMode + ' · ' + nonProd;
+  }
+
+  function releaseTextForViewer(data, described) {
+    const text = publicReleaseText(described && described.text);
+    const role = data && data.user && data.user.role;
+    if (role === '顾问') return text;
+    let out = text;
+    const sheet = described && described.spreadsheetId ? String(described.spreadsheetId) : '';
+    const drive = described && described.driveRootId ? String(described.driveRootId) : '';
+    if (sheet) out = out.split(sheet).join('已隐藏');
+    if (drive) out = out.split(drive).join('已隐藏');
+    return out;
+  }
+
   async function boot() {
     try {
       const data = await api('me');
+      const decision = (Rules && Rules.identityDecision)
+        ? Rules.identityDecision(data, window.AC01_BUILD || {})
+        : { ok: false, reasons: ['missing-check'] };
+      applyReleaseMarker(data, decision);
+      const targets = document.getElementById('target-marker');
+      if (targets && window.FSRules && FSRules.describeRelease) {
+        const described = FSRules.describeRelease(data);
+        targets.dataset.state = described.state;
+        targets.textContent = releaseTextForViewer(data, described);
+      }
+      if (!decision.ok) {
+        releaseState = 'rejected';
+        releaseReasons = decision.reasons || [];
+        applyRejectedChrome();
+        showStatus(rejectionText(), 'danger');
+        viewEl.innerHTML = alertBox('danger', E(rejectionText()));
+        return;
+      }
+      releaseState = 'accepted';
+      releaseReasons = [];
+      identityProfile = decision.profile || '';
+      signedSession = data;
       me = data.user;
       asOf = data.asOf || '';
       whoEl.textContent = `${me.displayName} · ${me.role} · ${me.jobId}`;
       const gate = document.getElementById('gate-note');
       if (gate) {
-        gate.textContent = data.openingConfirmed
-          ? '期初已确认。正式定稿仍须完成配平、完成页确认，且由接口放行。对客正式合同生成已关闭。'
-          : '期初待确认，禁止正式记账。对客正式合同生成已关闭。';
-      }
-      const marker = document.getElementById('build-marker');
-      const pageBuild = (window.AC01_BUILD && window.AC01_BUILD.buildId) || '';
-      if (marker) {
-        marker.textContent = (data.buildId || pageBuild) + ' · ' + (data.dataMode || '') + ' · 非生产数据';
-      }
-      if (!data.buildId || data.buildId !== pageBuild || data.productionData !== false || data.dataMode !== 'simulated-test') {
-        showStatus('页面版本与接口版本不一致，或接口不是隔离模拟测试发布。', 'danger');
+        if (decision.profile === 'official') {
+          gate.textContent = data.openingConfirmed
+            ? '期初已确认。财务定稿已关闭，不因配平或完成页放行。正式合同文本生成已关闭。'
+            : '期初待确认，禁止正式记账。财务定稿已关闭。正式合同文本生成已关闭。';
+        } else {
+          gate.textContent = data.openingConfirmed
+            ? '期初已确认。财务定稿已关闭，不因配平或完成页放行。正式合同文本生成已关闭。'
+            : '期初待确认，禁止正式记账。财务定稿已关闭。正式合同文本生成已关闭。';
+        }
       }
       await render();
     } catch (e) {
@@ -129,8 +436,18 @@
     location.replace((FS.adminBase ? FS.adminBase() : '/admin') + '/login.html');
   });
 
-  window.addEventListener('popstate', () => { render(); });
-  window.addEventListener('hashchange', () => { render(); });
+  let historyRouteRendered = null;
+  function historyRoute() {
+    return location.pathname + location.search + location.hash;
+  }
+  function renderFromHistory() {
+    const route = historyRoute();
+    if (route === historyRouteRendered) return;
+    historyRouteRendered = route;
+    render();
+  }
+  window.addEventListener('popstate', renderFromHistory);
+  window.addEventListener('hashchange', renderFromHistory);
   document.getElementById('nav').addEventListener('click', (e) => {
     const a = e.target.closest('a');
     if (!a) return;
@@ -155,11 +472,30 @@
     location.href = '../index.html';
   });
 
+  function showIdentityPending() {
+    viewEl.innerHTML = alertBox('info', E(IDENTITY_PENDING));
+  }
+
   async function render() {
-    const token = ++renderToken;
     const view = currentView();
     setNav(view);
-    viewEl.innerHTML = '<p class="muted" role="status">正在读取…</p>';
+    if (releaseState === 'pending') {
+      showIdentityPending();
+      return;
+    }
+    if (releaseState !== 'accepted') {
+      viewEl.innerHTML = alertBox('danger', E(rejectionText()));
+      return;
+    }
+    clearStaleDanger();
+    const token = ++renderToken;
+    viewEl.innerHTML = '<p class="muted" role="status" data-read-state="loading">正在读取…</p>';
+    const slowTimer = setTimeout(function () {
+      if (!alive(token)) return;
+      const node = viewEl.querySelector('[data-read-state="loading"]');
+      if (!node) return;
+      node.textContent = '仍在读取。这一步有时要将近 20 秒，请稍候。';
+    }, READ_SLOW_MS);
     try {
       if (view === 'dashboard') await renderDashboard(token);
       else if (view === 'plans') await renderPlans(token);
@@ -168,10 +504,17 @@
       else if (view === 'finance') await renderFinance(token);
       else if (view === 'contracts') await renderContracts(token);
       else if (view === 'logs') await renderLogs(token);
+      if (!alive(token)) return;
+      const stillLoading = viewEl.querySelector('[data-read-state="loading"]');
+      if (stillLoading) {
+        viewEl.innerHTML = alertBox('danger', E('读取没有完成。请稍后重新打开本页。'));
+      }
     } catch (e) {
       if (!alive(token)) return;
       if (e.status === 401) return location.replace((FS.adminBase ? FS.adminBase() : '/admin') + '/login.html');
-      viewEl.innerHTML = alertBox('danger', E(e.message));
+      viewEl.innerHTML = alertBox('danger', E(viewErrorText(e)));
+    } finally {
+      clearTimeout(slowTimer);
     }
   }
 
@@ -181,15 +524,21 @@
     const monthLabel = d.currentYearMonth || ym(d.asOf) || '';
     const warns = (d.warnings || []).map((w) => `<li>${E(w.message)}</li>`).join('')
       || '<li class="muted">暂无跨月未完成两次以上的预警。</li>';
-    const planRows = (d.plansThisMonth || []).map((p) =>
-      `<tr><td>${E(p.type)}</td><td>${E(p.title)}</td><td>${E(p.planDate || '')}</td><td>${badge(p.status)}</td></tr>`
-    ).join('') || '<tr><td colspan="4" class="muted">本月尚未登记计划。</td></tr>';
+    const monthPlans = d.plansThisMonth || [];
+    const emptyPlanText = publicFace((Rules && Rules.monthPlanEmptyText)
+      ? Rules.monthPlanEmptyText(identityProfile, monthPlans)
+      : (monthPlans.length ? '' : '本月尚未登记计划。'));
+    const planRows = emptyPlanText
+      ? `<tr><td colspan="4" class="muted">${E(emptyPlanText)}</td></tr>`
+      : monthPlans.map((p) =>
+        `<tr><td>${E(p.type)}</td><td>${E(p.title)}</td><td>${E(p.planDate || '')}</td><td>${showBadge(p.status)}</td></tr>`
+      ).join('');
     const m = d.month;
-    const fin = m ? `${m.yearMonth} · 明细 ${m.lineCount} 条 · 已附 ${m.counts.已附原件} · 免原件 ${m.counts.免原件} · 暂记 ${m.counts.暂记往来} · 未处理 ${m.counts.未处理}<br>${m.ledgerGenerated ? (m.bankBalanced ? badge('银行侧已核对') : badge('未配平')) : badge('尚未生成明细账')} ${m.completionConfirmed ? badge('完成页已确认') : badge('未过完成页')} ${m.posted ? badge('已定稿') : badge('未定稿')}` : '尚未登记月账。';
-    const cts = (d.contracts || []).map((c) => `<tr><td>${E(c.contractNo)}</td><td>${E(c.counterparty)}</td><td>${E(c.stage)}</td><td>${badge(c.status)}</td></tr>`).join('')
+    const fin = m ? `${m.yearMonth} · 明细 ${m.lineCount} 条 · 已附 ${m.counts.已附原件} · 免原件 ${m.counts.免原件} · 暂记款项 ${m.counts.暂记往来} · 未处理 ${m.counts.未处理}<br>${m.ledgerGenerated ? (m.bankBalanced ? showBadge('银行侧已核对') : showBadge('未配平')) : showBadge('尚未生成明细账')} ${m.completionConfirmed ? showBadge('完成页已确认') : showBadge('未过完成页')} ${m.posted ? showBadge('已定稿') : showBadge('未定稿')}` : '尚未登记月账。';
+    const cts = (d.contracts || []).map((c) => `<tr><td>${E(c.contractNo)}</td><td>${E(c.counterparty)}</td><td>${E(c.stage)}</td><td>${showBadge(c.status)}</td></tr>`).join('')
       || '<tr><td colspan="4" class="muted">暂无合同台账。</td></tr>';
     viewEl.innerHTML = `
-      ${alertBox('info', '内部看板。当前月 ' + E(monthLabel) + '。计划、合同与月账按同一 YYYY-MM 键读取。')}
+      ${alertBox('info', '公司管理后台。当前月 ' + E(monthLabel) + '。计划、合同与月账按同一月份读取。')}
       <div class="grid cols-3">
         <div class="card"><div class="kpi">${E((d.plansThisMonth || []).length)}<small>当月计划事项</small></div></div>
         <div class="card"><div class="kpi">${E(d.pendingDocs + d.picsPending)}<small>待核验资料 / 待存证</small></div></div>
@@ -221,8 +570,8 @@
     const warn = (d.warnings || []).map((w) => E(w.message)).join('<br>');
     const advisor = me.role === '顾问';
     const rows = (d.plans || []).map((p) => `<tr>
-      <td>${E(p.yearMonth)}</td><td>${badge(p.type)}</td><td>${E(p.title)}</td>
-      <td>${E(p.planDate || '')}</td><td>${E(p.owner || '')}</td><td>${badge(p.status)}</td>
+      <td>${E(p.yearMonth)}</td><td>${showBadge(p.type)}</td><td>${E(p.title)}</td>
+      <td>${E(p.planDate || '')}</td><td>${E(p.owner || '')}</td><td>${showBadge(p.status)}</td>
       <td>${E(p.feedback || '')}</td>
       <td class="right">
         ${advisor ? `<button class="btn small ghost" data-act="toggle" data-id="${E(p.id)}" data-status="${p.status === '已完成' ? '未完成' : '已完成'}">${p.status === '已完成' ? '标为未完成' : '标为已完成'}</button>` : ''}
@@ -302,11 +651,11 @@
     const advisor = me.role === '顾问';
     const rows = (d.proposals || []).map((p) => `<tr>
       <td>${E(p.id)}</td><td>${E(p.title)}</td><td>${E(p.yearMonth)}</td>
-      <td>${badge(p.status)}</td><td>${E(p.date)}</td>
+      <td>${showBadge(p.status)}</td><td>${E(p.date)}</td>
       <td>${p.fileId ? FS.fileLink(p.fileId, p, '查阅') : '—'}</td>
     </tr>`).join('');
     viewEl.innerHTML = `
-      <p class="muted">顾问上传的公司运营策划书在此归档。客户可查阅，不把技能文件直接交给客户。</p>
+      <p class="muted">顾问上传的公司运营策划书在此归档，供查阅。</p>
       ${advisor ? `<div class="card" style="margin-bottom:16px">
         <h3>上传策划书</h3>
         <form id="pr-form">
@@ -354,14 +703,15 @@
     const files = (d.files || []).map((f) => `<tr>
       <td>${E(f.id)}</td><td>${E(f.date)}</td><td>${E(f.category)}</td><td>${E(f.name)}</td>
       <td>${E(f.relatedId || '—')}</td>
-      <td>${E(f.source)}</td><td>${badge(f.status)}</td>
+      <td>${E(f.source)}</td><td>${showBadge(f.status)}</td>
       <td>${(f.claimedBy || []).map((c) => E((c.module || '') + (c.role ? '/' + c.role : ''))).join('、') || '尚未被其他模块认领'}</td>
       <td>${FS.fileHref(f.id, f) ? FS.fileLink(f.id, f, '打开') : '—'}</td>
     </tr>`).join('');
     const pics = (d.pics || []).map((p) => `<tr>
-      <td>${E(p.id)}</td><td>${E(p.date)}</td><td>${E(p.role)}</td><td>${E(p.version)}</td>
-      <td>${p.acknowledged ? badge('已勾选') : badge('未勾选')}</td><td>${E(p.digest)}</td>
+      <td>${E(p.id)}</td><td>${E(p.date)}</td><td>${E(p.role)}</td><td>${E(publicVersion(p.version))}</td>
+      <td>${p.acknowledged ? showBadge('已勾选') : showBadge('未勾选')}</td><td>${E(p.digest)}</td>
     </tr>`).join('');
+    const knownIds = (d.files || []).map((f) => f && f.id).filter(Boolean);
     viewEl.innerHTML = `
       ${alertBox('info', '同一文件只上传一次。月账、合同等模块只认领和关联，不因引用再记一笔账，也不再要求重传。')}
       <div class="card" style="margin-bottom:16px">
@@ -380,13 +730,23 @@
           <button class="btn teal small" type="submit">上传</button>
         </form>
       </div>
-      <div class="card" style="margin-bottom:16px">
+      ${identityProfile !== 'official' && me && me.role === '顾问' ? `<div class="card" id="replay-card" style="margin-bottom:16px">
+        <h3>按原请求号核对已归档文件</h3>
+        <p>这里只核对一条已经归档的文件。请求号、类别和关联编号都不能改，也不能用来核对其他文件。</p>
+        <p>请求号 ${E(Rules.PREVIEW_REPLAY.clientRequestId)} · 预期 fileId ${E(Rules.PREVIEW_REPLAY.fileId)} · 文件 ${E(Rules.PREVIEW_REPLAY.fileName)} · ${E(Rules.PREVIEW_REPLAY.size)} 字节 · 类别 ${E(Rules.PREVIEW_REPLAY.category)} · 关联 ${E(Rules.PREVIEW_REPLAY.relatedId)}</p>
+        <form id="replay-form">
+          <div class="field"><label>选择已归档的原始 PDF</label><input name="file" type="file" accept="application/pdf,.pdf" required></div>
+          <button class="btn small" type="submit">核对这一条</button>
+        </form>
+        <p id="replay-result" class="hint" role="status"></p>
+      </div>` : ''}
+      ${identityProfile === 'official' ? '' : `<div class="card" style="margin-bottom:16px">
         <h3>隐私声明存证（双向）</h3>
         <p class="muted">客户递交经营资料时应勾选并留下存证。顾问回传报告亦可在此记录。</p>
-        <button class="btn small" id="pics-btn" type="button">勾选预览版隐私声明并存证</button>
+        <button class="btn small" id="pics-btn" type="button">勾选隐私声明并存证</button>
         <table style="margin-top:12px"><thead><tr><th>编号</th><th>日期</th><th>角色</th><th>版本</th><th>勾选</th><th>摘要</th></tr></thead>
         <tbody>${pics || '<tr><td colspan="6" class="muted">尚无存证。</td></tr>'}</tbody></table>
-      </div>
+      </div>`}
       <div class="card">
         <h3>资料与凭证台账</h3>
         <table><thead><tr><th>编号</th><th>日期</th><th>类别</th><th>文件名</th><th>关联编号</th><th>来源</th><th>状态</th><th>被认领</th><th></th></tr></thead>
@@ -398,21 +758,98 @@
       const btn = form.querySelector('button[type="submit"]');
       if (!form.dataset.req) form.dataset.req = newRequestId('FL');
       const fd = new FormData(form);
+      const file = fd.get('file');
+      const hint = {
+        clientRequestId: form.dataset.req,
+        name: file && file.name || '',
+        category: String(fd.get('category') || ''),
+        relatedId: String(fd.get('relatedId') || ''),
+        size: file && file.size != null ? file.size : '',
+        uploadedBy: me && me.jobId || '',
+        date: shanghaiYmd()
+      };
       withSubmit(btn, async () => {
-        const out = await api('uploadDocument', {
-          category: fd.get('category'),
-          relatedId: fd.get('relatedId'),
-          clientRequestId: form.dataset.req,
-          __timeoutMs: 25000
-        }, fd.get('file'));
+        let out;
+        try {
+          out = await api('uploadDocument', {
+            category: hint.category,
+            relatedId: hint.relatedId,
+            clientRequestId: hint.clientRequestId,
+            __timeoutMs: 25000
+          }, file);
+        } catch (err) {
+          if (err && err.status === 401) throw err;
+          if (!isUnconfirmedWrite(err)) throw err;
+          if (btn.isConnected) btn.textContent = '正在核对台账…';
+          showStatus('上传请求没有及时返回，正在只读核对资料台账…', 'info');
+          const judged = await confirmUploadedFile(hint, knownIds);
+          if (!judged || judged.status !== 'found' || !judged.file) {
+            btn.dataset.hold = '1';
+            const input = form.querySelector('input[type="file"]');
+            if (input) input.value = '';
+            throw uploadUnconfirmedError(judged && judged.status);
+          }
+          out = { file: judged.file, relatedId: judged.file.relatedId || '', reconciled: true };
+        }
         const echoed = out.relatedId || (out.file && out.file.relatedId) || '';
-        showStatus('资料已归档 ' + out.file.id + (echoed ? ' · 关联编号 ' + echoed : ' · 未填写关联编号'), 'ok');
+        showStatus('资料已归档 ' + out.file.id + (echoed ? ' · 关联编号 ' + echoed : ' · 未填写关联编号') + (out.reconciled ? '。回读台账已确认，请不要再次上传。' : ''), 'ok');
         form.dataset.req = '';
         await render();
       });
     });
-    document.getElementById('pics-btn').addEventListener('click', () => {
+    const replayForm = document.getElementById('replay-form');
+    if (replayForm) replayForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = replayForm.querySelector('button[type="submit"]');
+      if (!btn || btn.dataset.busy === '1') return;
+      const file = new FormData(replayForm).get('file');
+      const resultEl = document.getElementById('replay-result');
+      const showReplay = (text, type) => {
+        const shown = publicFace(text);
+        if (resultEl) resultEl.textContent = shown;
+        showStatus(shown, type);
+      };
+      btn.dataset.busy = '1';
+      btn.disabled = true;
+      (async () => {
+        try {
+          if (!file || !file.name) {
+            showReplay(Rules.previewReplayRefusal(['file-missing']), 'danger');
+            return;
+          }
+          const sha256 = await sha256Hex(file);
+          const plan = Rules.previewReplayGate({
+            session: signedSession,
+            page: window.AC01_BUILD || {},
+            role: me && me.role,
+            file: { name: file.name, size: file.size, sha256: sha256 }
+          });
+          if (!plan.ok || !plan.request) {
+            showReplay(Rules.previewReplayRefusal(plan.reasons), 'danger');
+            return;
+          }
+          const out = await api('uploadDocument', {
+            category: plan.request.category,
+            relatedId: plan.request.relatedId,
+            clientRequestId: plan.request.clientRequestId,
+            __timeoutMs: 25000
+          }, file);
+          const verdict = Rules.previewReplayVerdict(out);
+          showReplay(Rules.previewReplayText(verdict), verdict.ok ? 'ok' : 'danger');
+        } catch (err) {
+          showReplay(err ? viewErrorText(err) : '核对没有完成。已停止，没有再次提交。', 'danger');
+        } finally {
+          if (btn.isConnected) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+          }
+        }
+      })();
+    });
+    const picsBtn = document.getElementById('pics-btn');
+    if (picsBtn) picsBtn.addEventListener('click', () => {
       const btn = document.getElementById('pics-btn');
+      if (!btn) return;
       withSubmit(btn, async () => {
         await api('acknowledgePics', { version: 'AC01-PICS-PREVIEW-v0.1', __timeoutMs: 20000 });
         showStatus('隐私声明存证已记录。', 'ok');
@@ -426,7 +863,7 @@
     if (!alive(token)) return;
     const rows = (d.logs || []).map((l) => `<tr>
       <td>${E(l.time)}</td><td>${E(l.actor)}</td><td>${E(l.action)}</td>
-      <td>${E(String(l.target || '').replace(/^YM:/, ''))}</td><td>${badge(l.result)}</td><td>${E(l.notes)}</td>
+      <td>${E(String(l.target || '').replace(/^YM:/, ''))}</td><td>${showBadge(l.result)}</td><td>${E(l.notes)}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="muted">暂无日志。</td></tr>';
     viewEl.innerHTML = `
       ${alertBox('info', '操作日志只记录动作与结果，不写入明文口令或其他密钥。')}
@@ -479,13 +916,15 @@
         <label for="ym">月份 <input id="ym" value="${E(selectedMonth)}" inputmode="numeric" aria-describedby="ym-hint" style="width:120px;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></label>
         <button class="btn small ghost" id="load-ym" type="button">切换</button>
         <span id="ym-hint" class="muted">键 ${E(m.yearMonth)}</span>
-        ${m.pastDeadline ? badge('已过提交限期 ' + m.deadline) : badge('限期 ' + m.deadline)}
-        ${m.bankBalanced ? badge('银行侧已核对') : (m.ledgerGenerated ? badge('未配平') : badge('尚未生成明细账'))}
-        ${m.completionConfirmed ? badge('完成页已确认') : badge('未过完成页')}
-        ${m.posted ? badge('已定稿') : badge('未定稿')}
-        ${d.openingConfirmed ? badge('期初已确认') : badge('期初未确认')}
+        ${m.pastDeadline ? showBadge('已过提交限期 ' + m.deadline) : showBadge('限期 ' + m.deadline)}
+        ${m.bankBalanced ? showBadge('银行侧已核对') : (m.ledgerGenerated ? showBadge('未配平') : showBadge('尚未生成明细账'))}
+        ${m.completionConfirmed ? showBadge('完成页已确认') : showBadge('未过完成页')}
+        ${m.posted ? showBadge('已定稿') : showBadge('未定稿')}
+        ${d.openingConfirmed ? showBadge('期初已确认') : showBadge('期初未确认')}
       </div>
-      ${alertBox('info', '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。期初未确认时，接口拒绝正式定稿。')}
+      ${alertBox('info', identityProfile === 'official'
+        ? '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。本版本未开放财务定稿。'
+        : '以每月公司银行月结单为核对称梁。现金或第三方收支单笔不超过 2,000 港元、当月合计不超过 20,000 港元；金额须为正数。超限不得按本条直接进入第一本明细账。本版本未开放财务定稿。')}
       <div class="tabs">
         ${tabBtn('statements', '1. 月结单与现金')}
         ${tabBtn('ledger', '2. 第一本明细账')}
@@ -523,15 +962,15 @@
         <h3>登记银行月结单（每账户一份）</h3>
         <form id="stmt-form">
           <div class="form-row">
-            <div class="field"><label>账户名称</label><input name="accountName" value="测试银行-港币往来（虚构）" required></div>
-            <div class="field"><label>账户代号</label><input name="accountId" value="TEST-BANK-HKD" required></div>
+            <div class="field"><label>账户名称</label><input name="accountName" value="${identityProfile === 'official' ? '' : ''}" required></div>
+            <div class="field"><label>账户代号</label><input name="accountId" value="${identityProfile === 'official' ? '' : ''}" required></div>
             <div class="field"><label>期初余额</label><input name="opening" type="number" step="0.01" required></div>
             <div class="field"><label>月结单期末余额</label><input name="closing" type="number" step="0.01" required></div>
             <div class="field"><label>月结单文件（可改认领已上传文件编号）</label><input name="file" type="file"></div>
             <div class="field"><label>或认领文件编号</label><input name="fileId" placeholder="FL-..."></div>
           </div>
           <div class="field"><label>明细（每行：日期|摘要|收入或支出|金额|对方|免原件类别可选）</label>
-            <textarea name="lines" rows="7" placeholder="2026-10-12|测试咨询费-测试客户甲（虚构）|收入|50000|测试客户甲（虚构）|&#10;2026-10-28|十月工资|支出|15000|员工（测试）|工资"></textarea>
+            <textarea name="lines" rows="7" placeholder="2026-10-12|咨询服务费|收入|50000|客户|&#10;2026-10-28|十月工资|支出|15000|员工|工资"></textarea>
           </div>
           <button class="btn teal small" type="submit">保存月结单</button>
         </form>
@@ -567,21 +1006,21 @@
     const rows = (d.lines || []).map((l) => `<tr>
       <td>${E(l.id)}</td><td>${E(l.date)}</td><td>${E(l.desc)}</td><td>${E(l.direction)}</td>
       <td>${E(l.amountHkd)}</td><td>${E(l.source)}</td><td>${E(l.subject)}</td>
-      <td>${l.voucherStatus ? badge(l.voucherStatus) : badge('未处理')}</td>
+      <td>${l.voucherStatus ? showBadge(l.voucherStatus) : showBadge('未处理')}</td>
       <td>${l.fileId ? FS.fileLink(l.fileId, d.files, l.fileId) : '—'}</td>
       <td>
         <div class="right">
           <button class="btn small ghost" data-act="upload" data-id="${E(l.id)}">上传附件</button>
           <button class="btn small ghost" data-act="claim" data-id="${E(l.id)}">认领已有文件</button>
           <button class="btn small ghost" data-act="waive" data-id="${E(l.id)}">免原件</button>
-          <button class="btn small ghost" data-act="suspense" data-id="${E(l.id)}">暂记往来</button>
+          <button class="btn small ghost" data-act="suspense" data-id="${E(l.id)}">暂记款项</button>
         </div>
       </td>
     </tr>`).join('');
     return `
       <div class="card">
-        <h3>第一本明细账（草稿）</h3>
-        <p class="muted">每一条后面都可以上传附件；已传过的只认领。符合规定的可免原件。限期后既不能免又不能提供原件的，标暂记往来，不得删除，也不得因此与月结单对不上。</p>
+        <h3>第一本明细账（工作底稿）</h3>
+        <p class="muted">每一条后面都可以上传附件；已传过的只认领。符合规定的可免原件。限期后既不能免又不能提供原件的，标暂记款项，不得删除，也不得因此与月结单对不上。</p>
         <input type="file" id="hidden-file" style="display:none">
         <select id="claim-file" style="display:none">${filesOpts}</select>
         <table>
@@ -600,47 +1039,48 @@
       bankBalanced: !!d.month.bankBalanced,
       unfinished: unfinished
     });
-    const confirmBtn = d.month.completionConfirmed ? '' : `<button class="btn amber" id="confirm-done" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">确认完成页</button><p class="hint">${decision.allowed ? '确认后仍不能直接定稿；期初未确认时期初禁令继续有效。' : E(decision.reasons.join(' '))}</p>`;
+    const confirmHint = decision.allowed
+      ? (identityProfile === 'official' ? '确认后仍不能定稿，本版本不写入正式四套账。' : '确认后仍不能定稿，本版本不写入正式四套账。')
+      : E(decision.reasons.join(' '));
+    const confirmBtn = d.month.completionConfirmed ? '' : `<button class="btn amber" id="confirm-done" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">确认完成页</button><p class="hint">${confirmHint}</p>`;
     return `
       ${!d.month.ledgerGenerated ? alertBox('warn', '尚未生成第一本明细账，不能进入完成页。') : ''}
       ${d.month.ledgerGenerated && !d.month.bankBalanced ? alertBox('danger', '银行侧与月结单对不上，不能确认完成页，也不能定稿。') : ''}
-      ${unfinished ? alertBox('danger', `尚有 ${unfinished} 条未处理，不能确认完成页。`) : (decision.allowed ? alertBox('ok', '三类均已列明。确认后仍须满足期初确认才能正式定稿。') : '')}
+      ${unfinished ? alertBox('danger', `尚有 ${unfinished} 条未处理，不能确认完成页。`) : (decision.allowed ? alertBox('ok', identityProfile === 'official' ? '三类均已列明。本版本未开放财务定稿。' : '三类均已列明。本版本未开放财务定稿。') : '')}
       ${d.month.completionConfirmed ? alertBox('ok', '本月完成页已于 ' + E(d.month.completionConfirmedAt || '') + ' 确认。') : ''}
       <div class="card" style="margin-bottom:12px"><h3>已附原件（${(g.已附原件||[]).length}）</h3>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.已附原件||[])}</tbody></table></div>
       <div class="card" style="margin-bottom:12px"><h3>免原件（${(g.免原件||[]).length}）</h3>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.免原件||[])}</tbody></table></div>
-      <div class="card" style="margin-bottom:12px"><h3>暂记往来（${(g.暂记往来||[]).length}）</h3>
-        <p class="muted">已暂记的月份可以定稿，但导出须标明暂记项目；未获真凭证调整前，这些项目不作为已齐备的审计附件。</p>
+      <div class="card" style="margin-bottom:12px"><h3>暂记款项（${(g.暂记往来||[]).length}）</h3>
+        <p class="muted">已记为暂记款项的月份可以定稿，但导出须标明暂记款项；未获真凭证调整前，这些项目不作为已齐备的审计附件。</p>
         <table><thead><tr><th>流水号</th><th>日期</th><th>摘要</th><th>方向</th><th>折港币</th><th>对方</th></tr></thead><tbody>${list(g.暂记往来||[])}</tbody></table></div>
       ${confirmBtn}`;
   }
 
   function renderFourTab(d) {
-    const unfinished = ((d.groups && d.groups['未处理']) || []).length;
-    const decision = Rules.formalPostDecision({
-      openingConfirmed: d.openingConfirmed === true,
-      ledgerGenerated: !!d.month.ledgerGenerated,
-      bankBalanced: !!d.month.bankBalanced,
-      completionConfirmed: !!d.month.completionConfirmed,
-      unfinished: unfinished
-    });
+    const postClosed = (Rules && Rules.previewFormalPostClosed)
+      ? Rules.previewFormalPostClosed(undefined, identityProfile)
+      : { allowed: false, reasons: [identityProfile === 'official' ? '本版本未开放财务定稿。' : '本版本未开放财务定稿。'] };
     const groups = ['利润表', '资产负债表', '现金流量表', '流水明细'];
     const blocks = groups.map((t) => {
       const rows = (d.four || []).filter((r) => r.type === t);
       if (!rows.length) return `<div class="card" style="margin-bottom:12px"><h3>${t}</h3><p class="muted">尚未定稿，这里没有正式数。</p></div>`;
       return `<div class="card" style="margin-bottom:12px"><h3>${t}</h3>
-        <table><thead><tr><th>项目</th><th>金额（港币）</th><th>含暂记</th><th>备注</th></tr></thead>
-        <tbody>${rows.map((r) => `<tr><td>${E(r.item)}</td><td>${E(r.amountHkd)}</td><td>${r.hasSuspense ? badge('含暂记往来') : '—'}</td><td>${E(r.notes || '')}</td></tr>`).join('')}</tbody></table>
+        <table><thead><tr><th>项目</th><th>金额（港币）</th><th>含暂记款项</th><th>备注</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td>${E(r.item)}</td><td>${E(r.amountHkd)}</td><td>${r.hasSuspense ? showBadge('含暂记款项') : '—'}</td><td>${E(r.notes || '')}</td></tr>`).join('')}</tbody></table>
       </div>`;
     }).join('');
     const previewOk = d.month.ledgerGenerated && d.month.bankBalanced && d.month.completionConfirmed && !d.month.posted;
+    const postNote = E(publicFace(postClosed.reasons.join(' ')));
     return `
-      ${d.month.posted ? alertBox('ok', '本月已定稿。含暂记往来的项目已在表内标明，不作为已齐备的审计附件，直至取得真凭证并完成调整。') : alertBox('info', decision.allowed ? '本月工作底稿条件已齐，且期初已确认。定稿仍由接口再次校验。' : decision.reasons.join(' '))}
-      ${previewOk ? '<button class="btn teal" id="preview-four" type="button">预览四套账（不定稿，不写入）</button>' : '<button class="btn teal" id="preview-four" type="button" disabled aria-disabled="true">预览四套账（不定稿，不写入）</button>'}
+      ${d.month.posted ? alertBox('ok', identityProfile === 'official'
+        ? '本月已有定稿记录。本版本不写入正式四套账。含暂记款项的项目已在表内标明，不作为已齐备的审计附件。'
+        : '本月已有定稿记录。本版本不写入正式四套账。含暂记款项的项目已在表内标明，不作为已齐备的审计附件。') : alertBox('info', postNote)}
+      ${previewOk ? '<button class="btn teal" id="preview-four" type="button">查阅四套账（不定稿，不写入）</button>' : '<button class="btn teal" id="preview-four" type="button" disabled aria-disabled="true">查阅四套账（不定稿，不写入）</button>'}
       ${previewOk ? '<button class="btn ghost" id="export-four" type="button">下载四套账草稿 CSV</button>' : '<button class="btn ghost" id="export-four" type="button" disabled aria-disabled="true">下载四套账草稿 CSV</button>'}
-      ${d.month.posted ? '' : `<button class="btn amber" id="post-four" type="button" ${decision.allowed ? '' : 'disabled'} aria-disabled="${decision.allowed ? 'false' : 'true'}">定稿并写入正式四套账</button>`}
-      <p class="hint">${d.month.posted ? '' : E(decision.allowed ? '此按钮会请求接口写入正式四套账。' : decision.reasons.join(' '))}</p>
+      <button class="btn amber" id="post-four" type="button" disabled aria-disabled="true">定稿并写入正式四套账</button>
+      <p class="hint" id="post-four-note">${postNote}</p>
       <div style="margin-top:16px">${blocks}</div>`;
   }
 
@@ -657,10 +1097,16 @@
       e.preventDefault();
       const btn = stmt.querySelector('button[type="submit"]');
       const fd = new FormData(stmt);
+      const accountName = String(fd.get('accountName') || '').trim();
+      const accountId = String(fd.get('accountId') || '').trim();
+      if (identityProfile === 'official' && (!accountName || !accountId)) {
+        showStatus('请填写账户名称和账户代号。', 'danger');
+        return;
+      }
       const payload = {
         yearMonth: selectedMonth,
-        accountName: fd.get('accountName'),
-        accountId: fd.get('accountId'),
+        accountName: accountName,
+        accountId: accountId,
         opening: Number(fd.get('opening')),
         closing: Number(fd.get('closing')),
         currency: 'HKD',
@@ -771,7 +1217,7 @@
       btn.addEventListener('click', () => {
         withSubmit(btn, async () => {
           await api('markSuspense', { lineId: btn.dataset.id, __timeoutMs: 20000 });
-          showStatus('已标明暂记往来 ' + btn.dataset.id, 'ok');
+          showStatus('已标明暂记款项 ' + btn.dataset.id, 'ok');
           await render();
         });
       });
@@ -791,12 +1237,12 @@
     const preview = document.getElementById('preview-four');
     if (preview) preview.addEventListener('click', () => {
       if (preview.disabled) {
-        showStatus('预览条件未满足，未请求接口。', 'danger');
+        showStatus('查阅条件未满足，未请求接口。', 'danger');
         return;
       }
       withSubmit(preview, async () => {
         const out = await api('previewFourStatements', { yearMonth: selectedMonth, __timeoutMs: 20000 });
-        showStatus((out && out.documentStatus ? out.documentStatus + '。' : '') + ((out && out.summary) ? out.summary : '已生成预览，未定稿，未写入。'), 'info');
+        showStatus((out && out.documentStatus ? publicFace(out.documentStatus) + '。' : '') + ((out && out.summary) ? publicFace(out.summary) : '已生成查阅结果，未定稿，未写入。'), 'info');
       });
     });
     const exp = document.getElementById('export-four');
@@ -818,28 +1264,18 @@
           return;
         }
         downloadText(out.filename || '四套账草稿.csv', out.csv);
-        showStatus('已下载四套账草稿 CSV。' + out.documentStatus + '。未定稿。', 'ok');
+        showStatus('已下载四套账草稿 CSV。' + displayLabel(out.documentStatus) + '。未定稿。', 'ok');
       });
     });
     const post = document.getElementById('post-four');
-    if (post) post.addEventListener('click', () => {
-      const unfinished = ((d.groups && d.groups['未处理']) || []).length;
-      const decision = Rules.formalPostDecision({
-        openingConfirmed: d.openingConfirmed === true,
-        ledgerGenerated: !!d.month.ledgerGenerated,
-        bankBalanced: !!d.month.bankBalanced,
-        completionConfirmed: !!d.month.completionConfirmed,
-        unfinished: unfinished
-      });
-      if (post.disabled || !decision.allowed) {
-        showStatus(decision.reasons.join(' ') || '正式定稿未放行。', 'danger');
-        return;
-      }
-      withSubmit(post, async () => {
-        await api('postFourStatements', { yearMonth: selectedMonth, __timeoutMs: 20000 });
-        showStatus('接口已接受正式定稿。', 'ok');
-        await render();
-      });
+    if (post) post.addEventListener('click', (event) => {
+      event.preventDefault();
+      post.disabled = true;
+      post.setAttribute('aria-disabled', 'true');
+      const closed = (Rules && Rules.previewFormalPostClosed)
+        ? Rules.previewFormalPostClosed(undefined, identityProfile)
+        : { allowed: false, reasons: [identityProfile === 'official' ? '本版本未开放财务定稿。' : '本版本未开放财务定稿。'] };
+      showStatus(publicFace(closed.reasons.join(' ')) || '本版本未开放财务定稿。', 'danger');
     });
   }
 
@@ -852,11 +1288,11 @@
     const rows = list.map((c) => `<tr>
       <td><a href="#" data-open="${E(c.contractNo)}">${E(c.contractNo)}</a></td>
       <td>${E(c.counterparty)}</td><td>${E(c.type)}</td><td>${E(c.stage)}</td>
-      <td>${badge(c.status)}</td><td>${E(c.amount)} ${E(c.currency)}</td>
+      <td>${showBadge(c.status)}</td><td>${E(c.amount)} ${E(c.currency)}</td>
     </tr>`).join('');
     const inv = (d.invoices || []).map((i) => `<tr>
       <td>${E(i.invoiceNo)}</td><td>${E(i.contractNo)}</td><td>${E(i.date)}</td>
-      <td>${E(i.amount)} ${E(i.currency)}</td><td>${badge(i.status)}</td>
+      <td>${E(i.amount)} ${E(i.currency)}</td><td>${showBadge(i.status)}</td>
     </tr>`).join() && ''; // fix below
     const invoices = (d.invoices || []);
     invoiceCsvByNo = {};
@@ -864,18 +1300,18 @@
     const invRows = invoices.map((i) => `<tr>
       <td>${E(i.invoiceNo)}</td><td>${E(i.contractNo)}</td><td>${E(i.date)}</td>
       <td>${E(i.amount)} ${E(i.currency)}</td>
-      <td>${badge(i.status || '模拟/草稿 非正式凭证')}</td>
+      <td>${showBadge(i.status || '模拟/草稿 非正式凭证')}</td>
       <td>${i.csv ? `<button class="btn small ghost" type="button" data-csv="${E(i.invoiceNo)}">下载草稿 CSV</button>` : '—'}</td>
     </tr>`).join('');
     viewEl.innerHTML = `
-      ${alertBox('info', '对客正式合同生成入口已关闭。订单模块不存在：合同台账不是订单。发票只能生成「模拟/草稿 非正式凭证」，不能取得官方发票号。')}
-      <div class="disabled-note" style="margin-bottom:16px">「生成正式合同文本」不可用。源码没有订单表、订单编号或订单动作。</div>
+      ${alertBox('info', '正式合同文本生成已关闭。合同台账不是订单。发票只能生成「草稿（未定稿）」，不能取得官方发票号。')}
+      <div class="disabled-note" style="margin-bottom:16px">「生成正式合同文本」不可用。合同台账用于登记已签署的合同。</div>
       <div class="card" style="margin-bottom:16px">
-        <h3>新建合同台账（非正式文本）</h3>
+        <h3>新建合同台账（未生成正式文本）</h3>
         <form id="ct-form">
           <div class="form-row">
-            <div class="field"><label>合同号</label><input name="contractNo" placeholder="AC01-TEST-C-001"></div>
-            <div class="field"><label>对方名称（须为虚构测试名称）</label><input name="counterparty" required></div>
+            <div class="field"><label>合同号</label><input name="contractNo" placeholder="TD-C-2026-001"></div>
+            <div class="field"><label>${identityProfile === 'official' ? '对方名称' : '对方名称'}</label><input name="counterparty" required></div>
             <div class="field"><label>类型</label><select name="type"><option>咨询技术</option><option>服务</option><option>销售</option><option>贸易</option></select></div>
             <div class="field"><label>金额</label><input name="amount" type="number" step="0.01" required></div>
             <div class="field"><label>首期金额</label><input name="firstAmount" type="number" step="0.01"></div>
@@ -892,8 +1328,8 @@
       </div>
       ${current ? renderContractDetail(current, d.files || []) : ''}
       <div class="card">
-        <h3>发票草稿（非正式）</h3>
-        <p class="hint">订单：不存在。金额只取合同台账，或取已经写上同一合同号的收入记录。不计算税额，不分配官方发票号，不盖章。</p>
+        <h3>发票草稿（未定稿）</h3>
+        <p class="hint">金额只取合同台账，或取已经写上同一合同号的收入记录。不计算税额，不分配官方发票号，不盖章。</p>
         ${current ? `<form id="inv-form">
           <div class="form-row">
             <div class="field"><label for="inv-contract">合同号</label><input id="inv-contract" name="contractNo" value="${E(current.contractNo)}" required></div>
@@ -910,7 +1346,7 @@
 
   function renderContractDetail(c, files) {
     const plan = (c.plan || []).map((p) => `<tr>
-      <td>${E(p.title)}</td><td>${E(p.dueDate)}</td><td>${p.done ? badge('已完成') : badge('未完成')}</td>
+      <td>${E(p.title)}</td><td>${E(p.dueDate)}</td><td>${p.done ? showBadge('已完成') : showBadge('未完成')}</td>
       <td>${(p.fileIds || []).join('、') || '—'}</td><td>${E(p.confirmFileId || '—')}</td>
       <td><button class="btn small ghost" data-node="${E(p.id)}" data-kind="file">认领/上传文件</button>
           ${p.kind !== '收付款' ? `<button class="btn small ghost" data-node="${E(p.id)}" data-kind="confirm">双方确认</button>` : ''}
@@ -919,7 +1355,7 @@
     const fileOpts = files.map((f) => `${f.id}（${f.name}）`).join('， ');
     return `<div class="card" style="margin-bottom:16px">
       <h3>合同详情 ${E(c.contractNo)}</h3>
-      <p>对方 ${E(c.counterparty)} · ${E(c.type)} · ${E(c.stage)} · ${badge(c.status)} · 金额 ${E(c.amount)} ${E(c.currency)} · 首期 ${E(c.firstAmount)}</p>
+      <p>对方 ${E(c.counterparty)} · ${E(c.type)} · ${E(c.stage)} · ${showBadge(c.status)} · 金额 ${E(c.amount)} ${E(c.currency)} · 首期 ${E(c.firstAmount)}</p>
       <p class="muted">签署正本：${c.signedFileId ? E(c.signedFileId) : '未归档'} · 首期凭证：${c.firstVoucherFileId ? E(c.firstVoucherFileId) : '未归档'} · 协议文件：${c.agreementFileId ? E(c.agreementFileId) : '无'}</p>
       <div class="right" style="margin:10px 0">
         <button class="btn small" id="ct-signed" type="button">归档签署正本</button>
@@ -949,7 +1385,7 @@
       withSubmit(btn, async () => {
         const out = await api('createContract', payload);
         selectedContract = out.contract.contractNo;
-        showStatus('非正式台账已写入 ' + out.contract.contractNo + '。未生成对客正式合同。这不是订单。', 'ok');
+        showStatus('合同台账已写入 ' + out.contract.contractNo + '。未生成正式合同文本。', 'ok');
         await render();
       });
     });
@@ -975,7 +1411,7 @@
           showStatus('草稿结果不合格，未收下。', 'danger');
           return;
         }
-        showStatus((out.idempotentReplay ? '同一来源未重复新增。' : '已生成发票草稿 ') + inv.invoiceNo + '。模拟/草稿 非正式凭证。', 'ok');
+        showStatus((out.idempotentReplay ? '同一来源未重复新增。' : '已生成发票草稿 ') + inv.invoiceNo + '。' + displayLabel(inv.status) + '。', 'ok');
         invForm.dataset.req = '';
         await render();
       });
@@ -983,11 +1419,11 @@
     viewEl.querySelectorAll('[data-csv]').forEach((btn) => btn.addEventListener('click', () => {
       const pack = invoiceCsvByNo[btn.getAttribute('data-csv')];
       if (!pack || pack.csv.indexOf('模拟/草稿 非正式凭证') < 0) {
-        showStatus('没有可下载的草稿，或文件缺少非正式标记。', 'danger');
+        showStatus('没有可下载的草稿，或文件缺少草稿标记。', 'danger');
         return;
       }
       downloadText(pack.filename, pack.csv);
-      showStatus('已下载发票草稿 CSV。模拟/草稿 非正式凭证。', 'ok');
+      showStatus('已下载发票草稿 CSV。草稿（未定稿）。', 'ok');
     }));
     if (!current) return;
     const uploadOrId = () => new Promise((resolve) => {
@@ -1071,5 +1507,6 @@
     });
   }
 
+  showIdentityPending();
   boot();
 })();
