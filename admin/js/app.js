@@ -493,7 +493,9 @@
       <td>${E(p.planDate || '')}</td><td>${E(p.owner || '')}</td><td>${badge(p.status)}</td>
       <td>${E(p.feedback || '')}</td>
       <td class="right">
-        ${advisor ? `<button class="btn small ghost" data-act="toggle" data-id="${E(p.id)}" data-status="${p.status === '已完成' ? '未完成' : '已完成'}">${p.status === '已完成' ? '标为未完成' : '标为已完成'}</button>` : ''}
+        ${(advisor && p.status !== '已作废' && !p.voided) ? `<button class="btn small ghost" data-act="toggle" data-id="${E(p.id)}" data-status="${p.status === '已完成' ? '未完成' : '已完成'}">${p.status === '已完成' ? '标为未完成' : '标为已完成'}</button>` : ''}
+        ${p.status === '已作废' || p.voided ? badge('已作废') : ''}
+        ${(advisor && p.status !== '已作废' && !p.voided) ? `<button class="btn small ghost" data-act="void-plan" data-id="${E(p.id)}">作废</button>` : ''}
         <button class="btn small ghost" data-act="fb" data-id="${E(p.id)}">回馈</button>
       </td>
     </tr>`).join('');
@@ -540,6 +542,19 @@
         form.dataset.req = '';
         form.reset();
         await render();
+      });
+    });
+    viewEl.querySelectorAll('[data-act="void-plan"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const reason = prompt('作废该计划（保留原行，不删除）。请填写原因：');
+        if (reason == null) return;
+        const text = String(reason).trim();
+        if (!text) { showStatus('作废须填写原因。', 'danger'); return; }
+        withSubmit(btn, async () => {
+          await api('voidPlan', { id: btn.dataset.id, reason: text, __timeoutMs: 20000 });
+          showStatus('计划已作废 ' + btn.dataset.id, 'ok');
+          await render();
+        });
       });
     });
     viewEl.querySelectorAll('[data-act="toggle"]').forEach((btn) => {
@@ -865,19 +880,22 @@
   }
 
   function renderStmtTab(d) {
+    const financeLocked = !!(d.month.completionConfirmed || d.month.posted);
     const stmts = (d.month.statements || []).map((s) => `
       <details class="block" open>
-        <summary>${E(s.accountName)} · 开户 ${s.opening} → 结单 ${s.closing}${s.fileId ? ' · 已附月结单文件' : ''}${s.internalDiff ? ' · 轧差差额 ' + s.internalDiff : ''}</summary>
+        <summary>${E(s.accountName)} · 开户 ${s.opening} → 结单 ${s.closing}${s.fileId ? ' · 已附月结单文件' : ''}${s.internalDiff ? ' · 轧差差额 ' + s.internalDiff : ''}${s.voided ? ' · 已作废' : ''}</summary>
         <table><thead><tr><th>日期</th><th>摘要</th><th>方向</th><th>金额</th><th>对方</th><th>免原件类别</th></tr></thead>
         <tbody>${(s.lines || []).map((l) => `<tr><td>${E(l.date)}</td><td>${E(l.desc)}</td><td>${E(l.direction)}</td><td>${E(l.amount)}</td><td>${E(l.counterparty)}</td><td>${E(l.waiverCategory || '')}</td></tr>`).join('')}</tbody></table>
+        ${(!financeLocked && !s.voided) ? `<p class="right"><button class="btn small ghost" type="button" data-act="void-stmt" data-account="${E(s.accountId)}">作废该账户月结单</button></p>` : (s.voided ? `<p class="hint">已于 ${E(s.voidedAt || '')} 作废${s.voidReason ? '：' + E(s.voidReason) : ''}。原登记保留。</p>` : '')}
       </details>`).join('') || '<p class="muted">尚未登记银行月结单。</p>';
     const cash = (d.month.cashItems || []).map((c) =>
-      `<tr><td>${E(c.id)}</td><td>${E(c.date)}</td><td>${E(c.desc)}</td><td>${E(c.direction)}</td><td>${E(c.amount)} ${E(c.currency)}</td><td>${E(c.counterparty)}</td></tr>`
-    ).join('') || '<tr><td colspan="6" class="muted">尚未登记现金或第三方收支。</td></tr>';
+      `<tr><td>${E(c.id)}</td><td>${E(c.date)}</td><td>${E(c.desc)}</td><td>${E(c.direction)}</td><td>${E(c.amount)} ${E(c.currency)}</td><td>${E(c.counterparty)}</td><td>${c.voided ? '已作废' + (c.voidReason ? ' · ' + E(c.voidReason) : '') : (!financeLocked ? `<button class="btn small ghost" type="button" data-act="void-cash" data-id="${E(c.id)}">作废</button>` : '')}</td></tr>`
+    ).join('') || '<tr><td colspan="7" class="muted">尚未登记现金或第三方收支。</td></tr>';
     const rejected = (d.rejectedCash || []).map((r) => `<li>${E(r.at)} · ${E(r.desc)} · ${r.amount} 港元 · ${E(r.reason)}</li>`).join('');
     return `
       <div class="card" style="margin-bottom:16px">
         <h3>登记银行月结单（每账户一份）</h3>
+        ${financeLocked ? `<div class="alert warn">完成页已确认或已定稿，不能再保存月结单、登记现金或生成明细账。不能以此撤销确认或定稿。</div>` : `
         <form id="stmt-form">
           <div class="form-row">
             <div class="field"><label>账户名称</label><input name="accountName" value="${identityProfile === 'official' ? '' : '测试银行-港币往来（虚构）'}" required></div>
@@ -890,15 +908,16 @@
           <div class="field"><label>明细（每行：日期|摘要|收入或支出|金额|对方|免原件类别可选）</label>
             <textarea name="lines" rows="7" placeholder="2026-10-12|测试咨询费-测试客户甲（虚构）|收入|50000|测试客户甲（虚构）|&#10;2026-10-28|十月工资|支出|15000|员工（测试）|工资"></textarea>
           </div>
+          <p class="hint">同一账户代号再保存即覆盖该账户整份月结单。</p>
           <button class="btn teal small" type="submit">保存月结单</button>
-        </form>
+        </form>`}
       </div>
       <div class="card" style="margin-bottom:16px">
         <h3>已登记月结单</h3>${stmts}
       </div>
       <div class="card" style="margin-bottom:16px">
         <h3>登记现金或第三方收支（月结单上看不到的事项）</h3>
-        <form id="cash-form">
+        ${financeLocked ? '<p class="hint">已确认或已定稿，现金快捷通道已关闭。</p>' : `<form id="cash-form">
           <div class="form-row">
             <div class="field"><label for="cash-date">日期</label><input id="cash-date" name="date" required placeholder="2026-11-18" pattern="\\d{4}-\\d{2}-\\d{2}"></div>
             <div class="field"><label for="cash-desc">摘要</label><input id="cash-desc" name="desc" required></div>
@@ -909,12 +928,12 @@
           </div>
           <p id="cash-limit" class="hint">单笔不超过 2,000 港元，当月合计不超过 20,000 港元。金额须为正数；零和负数会在提交前被拒绝。</p>
           <button class="btn small" type="submit">登记</button>
-        </form>
-        <table style="margin-top:12px"><thead><tr><th>编号</th><th>日期</th><th>摘要</th><th>方向</th><th>金额</th><th>对方</th></tr></thead><tbody>${cash}</tbody></table>
+        </form>`}
+        <table style="margin-top:12px"><thead><tr><th>编号</th><th>日期</th><th>摘要</th><th>方向</th><th>金额</th><th>对方</th><th></th></tr></thead><tbody>${cash}</tbody></table>
         ${rejected ? `<div class="alert danger"><strong>被拒绝的超限登记（未入第一本明细账）：</strong><ul>${rejected}</ul></div>` : ''}
       </div>
-      <button class="btn amber" id="gen-ledger" type="button">提交并生成第一本明细账</button>
-      <p class="hint">银行侧余额须与月结单一致，才能继续。对不上则拒绝生成，不会把未配平说成已配平。</p>`;
+      ${financeLocked ? '' : `<button class="btn amber" id="gen-ledger" type="button">提交并生成第一本明细账</button>
+      <p class="hint">银行侧余额须与月结单一致，才能继续。对不上则拒绝生成，不会把未配平说成已配平。已确认或已定稿后不再显示此按钮，也不能以此来撤销确认或定稿。</p>`}`;
   }
 
   function renderLedgerTab(d) {
@@ -1093,6 +1112,38 @@
         financeTab = 'ledger';
         showStatus('已生成第一本明细账（工作底稿，不是正式定稿）。', 'ok');
         await render();
+      });
+    });
+    const askVoidReason = (label) => {
+      const reason = prompt(label + '请填写作废原因（不作物理删除，原登记保留）：');
+      if (reason == null) return '';
+      const text = String(reason).trim();
+      if (!text) {
+        showStatus('作废须填写原因。', 'danger');
+        return '';
+      }
+      return text;
+    };
+    viewEl.querySelectorAll('[data-act="void-stmt"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const reason = askVoidReason('作废该账户月结单。');
+        if (!reason) return;
+        withSubmit(btn, async () => {
+          const out = await api('voidStatement', { yearMonth: selectedMonth, accountId: btn.dataset.account, reason, __timeoutMs: 20000 });
+          showStatus('已作废账户 ' + btn.dataset.account + ' 的月结单' + (out.regenerated ? '，并已按未作废项重新生成明细账。' : '。'), 'ok');
+          await render();
+        });
+      });
+    });
+    viewEl.querySelectorAll('[data-act="void-cash"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const reason = askVoidReason('作废该笔现金或第三方收支。');
+        if (!reason) return;
+        withSubmit(btn, async () => {
+          const out = await api('voidCashItem', { yearMonth: selectedMonth, id: btn.dataset.id, reason, __timeoutMs: 20000 });
+          showStatus('已作废 ' + btn.dataset.id + (out.regenerated ? '，并已按未作废项重新生成明细账。' : '。'), 'ok');
+          await render();
+        });
       });
     });
     const hidden = document.getElementById('hidden-file');
