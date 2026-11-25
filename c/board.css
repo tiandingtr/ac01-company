@@ -109,3 +109,67 @@ button.ghost:hover { background: rgba(255,255,255,0.1); }
   td { border: none; border-bottom: 1px solid rgba(247,244,236,0.1); position: relative; padding-left: 50%; text-align: right; }
   td:before { content: attr(data-l); position: absolute; left: 12px; width: 45%; padding-right: 10px; white-space: nowrap; font-weight: bold; color: #B08D57; text-align: left; }
 }
+/* 政策栏与总览联动提示条样式（深绿香槟金体系） */
+html { scroll-behavior: smooth; }
+.pol-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(176, 141, 87, 0.14); border: 1px solid rgba(176, 141, 87, 0.45);
+  border-left: 4px solid #B08D57; border-radius: 6px; padding: 12px 18px; margin-bottom: 16px;
+}
+.pol-banner-text { font-size: 14px; color: #F7F4EC; font-weight: 500; }
+.pol-banner-link {
+  flex-shrink: 0; font-size: 13px; font-weight: 600; color: #1F3A2E; background: #B08D57;
+  padding: 6px 14px; border-radius: 4px; text-decoration: none; transition: all 0.25s;
+}
+.pol-banner-link:hover { background: #D9C29A; }
+.sec-title .badge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px;
+  background: rgba(176, 141, 87, 0.18); border: 1px solid rgba(176, 141, 87, 0.45);
+  color: #D9C29A; font-weight: 500; letter-spacing: 0;
+}
+.pol-group-title {
+  font-size: 14px; font-weight: 600; color: #D9C29A; margin: 16px 0 10px; letter-spacing: 0.5px;
+}
+.pol-head b { color: #D9C29A; }
+.pol-pin { border-color: rgba(176, 141, 87, 0.45); border-left: 4px solid #B08D57; }
+.pol h3 {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  font-size: 16px; font-weight: 600; color: #F7F4EC; margin-bottom: 8px; line-height: 1.5;
+}
+.lv {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+.lv-warn { background: rgba(239, 68, 68, 0.18); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); }
+.lv-info { background: rgba(176, 141, 87, 0.2); color: #D9C29A; border: 1px solid rgba(176, 141, 87, 0.5); }
+.lv-check { background: rgba(74, 222, 128, 0.15); color: #86efac; border: 1px solid rgba(74, 222, 128, 0.4); }
+.pin-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;
+  background: #B08D57; color: #1F3A2E; flex-shrink: 0;
+}
+.pol-sub { margin: 0 0 10px !important; font-size: 12px; color: #A9A294; }
+.pol-sum { font-size: 14px; line-height: 1.7; color: #F7F4EC; margin-bottom: 12px; }
+.pol-impact {
+  background: rgba(0, 0, 0, 0.22); border-left: 3px solid #B08D57; border-radius: 4px;
+  padding: 10px 14px; font-size: 13px; color: #F7F4EC; margin-bottom: 12px; line-height: 1.6;
+}
+.pol-impact b { color: #D9C29A; }
+.pol-src { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; }
+.pol-src a { color: #D9C29A; text-decoration: none; border-bottom: 1px dashed rgba(217, 194, 154, 0.5); }
+.pol-src a:hover { color: #F7F4EC; border-bottom-color: #F7F4EC; }
+.pol-more {
+  margin: 18px 0 14px; background: rgba(0, 0, 0, 0.16); border: 1px solid rgba(247, 244, 236, 0.15);
+  border-radius: 8px; padding: 12px 16px;
+}
+.pol-more summary {
+  cursor: pointer; font-size: 14px; font-weight: 600; color: #D9C29A; list-style: none;
+}
+.pol-more summary::-webkit-details-marker { display: none; }
+.pol-more summary::before { content: "▸ "; display: inline-block; transition: transform 0.2s; }
+.pol-more[open] summary::before { content: "▾ "; }
+.pol-more-list { margin-top: 14px; }
+.pol-disc { margin-top: 12px; font-size: 12px; line-height: 1.6; }
+@media (max-width: 600px) {
+  .pol-banner { flex-direction: column; align-items: flex-start; padding: 12px 14px; }
+  .sec-title { flex-wrap: wrap; gap: 8px; }
+  .pol h3 { font-size: 15px; }
+}
