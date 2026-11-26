@@ -48,6 +48,19 @@ footer p:last-child { margin-top: 16px; opacity: 0.5; }
    天鼎看板内部页面样式 (修复裸奔)
    ========================================= */
 
+/* 解锁后的内容列。规则在样式表里，#app 去掉 .hidden 的第一帧就是这条宽度，
+   不靠脚本事后加类。flex 子项默认按内容最大宽度增长，表格和 1fr 网格会把它撑满视口。 */
+#app {
+  align-self: flex-start;
+  flex: 0 1 1080px;
+  width: 100%;
+  max-width: 1080px;
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+  overflow-wrap: break-word;
+}
+
 /* 顶部问候与导航 */
 .hello { margin-bottom: 20px; }
 .hello h1 { font-size: 26px; color: #F7F4EC; font-weight: 600; margin-bottom: 8px; }
